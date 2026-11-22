@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#111622">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="極速選股 2.0">
+    <title>極速選股 2.0 — 台股專業量價與資金流向看盤系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        tw: {
+                            up: '#ef4444',       // 台股紅漲
+                            upBg: 'rgba(239, 68, 68, 0.14)',
+                            down: '#10b981',     // 台股綠跌
+                            downBg: 'rgba(16, 185, 129, 0.14)',
+                            flat: '#94a3b8',
+                        },
+                        terminal: {
+                            bg: '#0a0d14',       // 極深炭黑底色
+                            panel: '#111622',    // 面板底色
+                            elevated: '#171e2e', // 浮起區塊
+                            border: '#222b3e',   // 冷銀灰細邊框
+                            hover: '#1c2436'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-panel { animation: fadeSlide 0.2s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 dark:bg-terminal-bg dark:text-slate-100 min-h-screen flex flex-col selection:bg-amber-500/30">
+
+    <!-- 頂部專業看盤導覽列 -->
+    <header class="sticky top-0 z-40 bg-white/95 dark:bg-terminal-panel/95 backdrop-blur border-b border-slate-200 dark:border-terminal-border">
+        <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-15 py-2.5 flex items-center justify-between gap-3">
+            <!-- Brand -->
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-mono font-bold text-base shadow-sm">
+                    2.0
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-base sm:text-lg tracking-tight leading-none">極速選股 2.0</h1>
+                        <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-slate-800 text-amber-400 border border-slate-700">PRO TERMINAL</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">量價動能濾網 ‧ 族群資金流向 ‧ 多空策略監控</p>
+                </div>
+            </div>
+
+            <!-- 桌面版 4 大核心分頁（依序：盤中雷達、盤後選股、自選股、資金流向） -->
+            <nav class="hidden lg:flex items-center bg-slate-100 dark:bg-terminal-bg p-1 rounded-xl border border-slate-200 dark:border-terminal-border" id="desktop-nav">
+                <button onclick="switchTab('intraday-radar')" data-tab="intraday-radar" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5">
+                    <span>📡</span> 盤中雷達
+                    <span class="w-1.5 h-1.5 rounded-full bg-tw-up animate-ping"></span>
+                </button>
+                <button onclick="switchTab('post-market')" data-tab="post-market" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5">
+                    <span>📊</span> 盤後選股
+                </button>
+                <button onclick="switchTab('watchlist')" data-tab="watchlist" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5">
+                    <span>⭐</span> 自選股
+                    <span class="px-1.5 py-0.2 text-[11px] font-mono rounded bg-slate-200 dark:bg-terminal-elevated text-amber-500" id="nav-watchlist-total">9</span>
+                </button>
+                <button onclick="switchTab('capital-flow')" data-tab="capital-flow" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5">
+                    <span>🌊</span> 資金流向
+                </button>
+            </nav>
+
+            <!-- 右側大盤指數與主題切換 -->
+            <div class="flex items-center gap-2.5">
+                <div class="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border text-xs font-mono tabular-nums">
+                    <div>
+                        <span class="text-slate-400 font-sans mr-1">加權</span>
+                        <span class="font-bold text-tw-up">23,518.4</span>
+                        <span class="text-tw-up ml-1">▲1.32%</span>
+                    </div>
+                    <span class="text-slate-300 dark:text-slate-700">|</span>
+                    <div>
+                        <span class="text-slate-400 font-sans mr-1">預估量</span>
+                        <span class="font-bold">4,412億</span>
+                    </div>
+                </div>
+
+                <button onclick="toggleTheme()" aria-label="切換深淺色" class="p-2 rounded-lg bg-slate-100 dark:bg-terminal-bg hover:bg-slate-200 dark:hover:bg-terminal-hover border border-slate-200 dark:border-terminal-border text-slate-600 dark:text-slate-300 transition-colors">
+                    <svg class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg class="w-4 h-4 block dark:hidden text-slate-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 全域提示訊息 Toast -->
+    <div id="toast-container" class="fixed top-18 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full"></div>
+
+    <!-- 主工作區 -->
+    <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 pt-5 pb-24 lg:pb-10">
+
+        <!-- =====================================================================
+             分頁 1：【盤中雷達】
+             - 盤中多方即時觸發個股：強勢資金進場 ＋ 領漲股5分K漲幅 >= 6.8% 並於下一根5分依舊強勢
+             - 盤中空方即時觸發個股：僅保留「強勢資金退場」、「下一根5分k依舊弱勢無量」
+             - 族群資金進出比例並即時排序
+             ===================================================================== -->
+        <section id="tab-intraday-radar" class="tab-section hidden space-y-4">
+            <!-- 標題與多空切換、即時刷新控制 -->
+            <div class="bg-white dark:bg-terminal-panel p-4 rounded-xl border border-slate-200 dark:border-terminal-border flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-base sm:text-lg font-bold">盤中雷達 — 多空訊號與族群資金進出比例</h2>
+                        <span class="px-2 py-0.5 text-[11px] font-mono font-bold rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">依族群資金進出比例即時排序</span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">多方即時觸發整合「強勢資金進場＋領漲股5分K漲幅 ≥ 6.8%並於下一根5分依舊強勢」；空方即時觸發鎖定「強勢資金退場」與「下一根5分k依舊弱勢無量」</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- 多方 / 空方 雷達切換 -->
+                    <div class="flex items-center bg-slate-100 dark:bg-terminal-bg p-1 rounded-lg border border-slate-200 dark:border-terminal-border">
+                        <button onclick="setRadarDirection('long')" id="radar-dir-long" class="px-3 py-1 rounded-md text-xs font-bold transition-all">
+                            📈 盤中多方雷達
+                        </button>
+                        <button onclick="setRadarDirection('short')" id="radar-dir-short" class="px-3 py-1 rounded-md text-xs font-bold transition-all">
+                            📉 盤中空方雷達
+                        </button>
+                    </div>
+                    <span class="text-xs font-mono text-slate-400">跳動：<strong id="radar-timestamp" class="text-amber-400">10:42:15</strong></span>
+                    <button onclick="simulateRadarTick()" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5">
+                        <span>⚡ 模擬盤中資金跳動</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 盤中多/空即時觸發個股篩選條件與結果區 -->
+            <div class="bg-white dark:bg-terminal-panel p-4 rounded-xl border border-slate-200 dark:border-terminal-border space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span id="radar-signal-title" class="text-xs font-bold text-tw-up flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-tw-up animate-ping"></span>
+                        <span>盤中多方即時觸發個股篩選條件：強勢資金進場 ＋ 領漲股5分K漲幅 ≥ 6.8% 並於下一根5分依舊強勢</span>
+                    </span>
+                    <span id="radar-signal-count" class="text-[11px] font-mono text-amber-400 font-bold">符合 0 檔</span>
+                </div>
+
+                <!-- 盤中多方即時觸發個股篩選條件列 -->
+                <div id="radar-long-filter-box" class="p-3 rounded-xl bg-slate-50 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span class="font-bold text-tw-up">盤中多方即時觸發篩選條件：</span>
+                        <button type="button" onclick="resetRadarLongFilters()" class="text-amber-400 hover:underline font-semibold text-[11px]">重設多方條件</button>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-terminal-panel border border-slate-200 dark:border-terminal-border cursor-pointer font-semibold">
+                            <input type="checkbox" id="radar-long-strong-fund" checked onchange="renderRadarLiveSignals()" class="rounded text-amber-500 focus:ring-0">
+                            <span>強勢資金進場</span>
+                        </label>
+                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-terminal-panel border border-slate-200 dark:border-terminal-border cursor-pointer font-semibold">
+                            <input type="checkbox" id="radar-long-5m-surge" checked onchange="renderRadarLiveSignals()" class="rounded text-amber-500 focus:ring-0">
+                            <span>領漲股5分K漲幅 ≥ 6.8%</span>
+                        </label>
+                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-terminal-panel border border-slate-200 dark:border-terminal-border cursor-pointer font-semibold">
+                            <input type="checkbox" id="radar-long-next-5m-strong" checked onchange="renderRadarLiveSignals()" class="rounded text-amber-500 focus:ring-0">
+                            <span>並於下一根5分依舊強勢</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 盤中空方即時觸發個股篩選條件列（強勢資金退場、下一根5分k依舊弱勢無量、領跌股5分K漲幅 ≥ 6%） -->
+                <div id="radar-short-filter-box" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold text-tw-down">盤中空方即時觸發篩選條件（多選採交集）：</span>
+                        <button type="button" onclick="clearRadarShortConditions()" class="text-amber-400 hover:underline font-semibold text-[11px]">清除空方條件</button>
+                    </div>
+                    <div id="radar-short-checkboxes" class="flex flex-wrap gap-2">
+                        <!-- JS 動態渲染空方條件 -->
+                    </div>
+                </div>
+
+                <div id="radar-live-signals" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <!-- JS 動態渲染符合篩選條件的多方或空方個股訊號 -->
+                </div>
+            </div>
+
+            <!-- 頂部前四大族群資金進出比例快覽卡片 -->
+            <div id="radar-top-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <!-- JS 動態渲染 Top 4 -->
+            </div>
+
+            <!-- 完整族群資金進出比例明細表 (依族群資金進出比例即時排序) -->
+            <div class="bg-white dark:bg-terminal-panel rounded-xl border border-slate-200 dark:border-terminal-border overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-200 dark:border-terminal-border flex flex-wrap items-center justify-between gap-2">
+                    <span id="radar-table-heading" class="text-xs font-bold text-slate-400">全市場族群資金進出比例即時排行（多方模式：流入比例由高到低 ↓）</span>
+                    <div class="flex items-center gap-3 text-[11px]">
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-tw-up inline-block"></span> 資金流入比例</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-tw-down inline-block"></span> 資金流出比例</span>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 dark:border-terminal-border bg-slate-50 dark:bg-terminal-elevated/70 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                <th class="py-3 px-4 w-14">排名</th>
+                                <th class="py-3 px-3">產業族群</th>
+                                <th class="py-3 px-3 text-right">即時資金規模 (億)</th>
+                                <th class="py-3 px-3 text-right">族群漲跌幅</th>
+                                <th class="py-3 px-4 min-w-[250px]" id="radar-sort-col-header">族群資金進出比例 (即時排序基準 ↓)</th>
+                                <th class="py-3 px-3">指標股</th>
+                                <th class="py-3 px-4 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="radar-table-body" class="divide-y divide-slate-100 dark:divide-terminal-border text-xs sm:text-sm tabular-nums">
+                            <!-- JS 動態渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             分頁 2：【盤後選股（可做多／可做空）】
+             移除「放空挑選」獨立項目，合併為單一模組
+             ===================================================================== -->
+        <section id="tab-post-market" class="tab-section hidden space-y-4">
+            <!-- 多空雙模式切換頂欄 -->
+            <div class="bg-white dark:bg-terminal-panel p-4 rounded-xl border border-slate-200 dark:border-terminal-border flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-base sm:text-lg font-bold">盤後選股 — 可做多 ／ 可做空</h2>
+                        <span class="px-2 py-0.5 text-[11px] font-mono rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">已整併原放空挑選</span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">單一模組整合多空策略：可做多鎖定領漲 ≥ 6.8%，可做空鎖定弱勢退場領跌 ≥ 5%</p>
+                </div>
+
+                <!-- 雙模式切換按鈕組 -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="setPostMarketMode('long')" id="pm-btn-long" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all flex items-center gap-2">
+                        <span>📈 可做多</span>
+                        <span class="text-[11px] font-mono px-1.5 py-0.2 rounded bg-black/20">領漲 ≥ 6.8%</span>
+                    </button>
+                    <button onclick="setPostMarketMode('short')" id="pm-btn-short" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all flex items-center gap-2">
+                        <span>📉 可做空</span>
+                        <span class="text-[11px] font-mono px-1.5 py-0.2 rounded bg-black/20">跌幅 ≥ 5%</span>
+                    </button>
+                    <button onclick="setPostMarketMode('split')" id="pm-btn-split" class="px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all">
+                        多空並排檢視
+                    </button>
+                </div>
+            </div>
+
+            <!-- 條件說明與做空專用「低價股/高價股」過濾工具列 -->
+            <div id="pm-filter-toolbar" class="bg-white dark:bg-terminal-panel p-3.5 rounded-xl border border-slate-200 dark:border-terminal-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div id="pm-rule-badge" class="text-xs flex flex-wrap items-center gap-2">
+                    <!-- JS 動態更新規則說明 -->
+                </div>
+
+                <!-- 做空高低價股過濾器與成交量門檻篩選 -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-xs">
+                        <label for="pm-min-volume-input" class="text-slate-400">最低成交量 (張)：</label>
+                        <input type="number" id="pm-min-volume-input" min="0" step="100" placeholder="例如 1000" oninput="renderPostMarketTables()" class="w-28 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500">
+                    </div>
+                    <div id="short-tier-filter-group" class="flex items-center gap-1.5">
+                        <span class="text-xs text-slate-400 mr-1">低價／高價股篩選：</span>
+                        <button onclick="setShortPriceTier('ALL')" data-tier="ALL" class="tier-btn px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors">全部</button>
+                        <button onclick="setShortPriceTier('LOW')" data-tier="LOW" class="tier-btn px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors">低價股 (&lt;100元)</button>
+                        <button onclick="setShortPriceTier('HIGH')" data-tier="HIGH" class="tier-btn px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors">高價股 (≥100元)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 盤後選股結果區 (支援單欄或雙欄並排) -->
+            <div id="pm-results-wrapper" class="grid grid-cols-1 gap-4">
+                <!-- 可做多面板 -->
+                <div id="pm-long-panel" class="bg-white dark:bg-terminal-panel rounded-xl border border-slate-200 dark:border-terminal-border overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-200 dark:border-terminal-border bg-tw-upBg/40 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-tw-up"></span>
+                            <h3 class="font-bold text-sm text-tw-up">可做多清單：領漲股漲幅 ≥ 6.8% 盤後強勢標的</h3>
+                        </div>
+                        <span id="pm-long-count" class="text-xs font-mono font-bold text-tw-up">0 檔</span>
+                    </div>
+                    <!-- 可做多條件勾選列 -->
+                    <div class="px-4 py-3 border-b border-slate-200 dark:border-terminal-border bg-slate-50/80 dark:bg-terminal-bg/60 space-y-2">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400">
+                            <span class="font-bold">可做多條件勾選（多選採交集篩選）：</span>
+                            <button type="button" onclick="clearPostMarketChecks('long')" class="text-amber-400 hover:underline font-semibold">清除勾選</button>
+                        </div>
+                        <div id="pm-long-checkboxes" class="flex flex-wrap gap-2"></div>
+                        <div class="pt-1 flex flex-wrap items-center gap-3 text-xs">
+                            <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-terminal-panel border border-slate-200 dark:border-terminal-border cursor-pointer font-semibold">
+                                <input type="checkbox" id="pm-long-no-early-limit" onchange="renderPostMarketTables()" class="rounded text-tw-up focus:ring-0">
+                                <span>前一交易日0930前沒有直接漲跌停</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 dark:border-terminal-border bg-slate-50 dark:bg-terminal-elevated/60 text-[11px] text-slate-400">
+                                    <th class="py-2.5 px-4">代號 / 名稱</th>
+                                    <th class="py-2.5 px-3">強勢資金族群</th>
+                                    <th class="py-2.5 px-3 text-right">收盤價</th>
+                                    <th class="py-2.5 px-3 text-right">漲幅 (≥6.8%)</th>
+                                    <th class="py-2.5 px-3 text-right">成交量 (張)</th>
+                                    <th class="py-2.5 px-3">符合條件 / 型態</th>
+                                    <th class="py-2.5 px-4 text-right">加入追蹤清單</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pm-long-tbody" class="divide-y divide-slate-100 dark:divide-terminal-border text-xs sm:text-sm tabular-nums"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 可做空面板 -->
+                <div id="pm-short-panel" class="bg-white dark:bg-terminal-panel rounded-xl border border-slate-200 dark:border-terminal-border overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-200 dark:border-terminal-border bg-tw-downBg/40 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-tw-down"></span>
+                            <h3 class="font-bold text-sm text-tw-down">可做空清單：弱勢族群資金退場 ＋ 領漲股跌幅 ≥ 5%</h3>
+                        </div>
+                        <span id="pm-short-count" class="text-xs font-mono font-bold text-tw-down">0 檔</span>
+                    </div>
+                    <!-- 可做空條件勾選列（保留 6 項空方條件） -->
+                    <div class="px-4 py-3 border-b border-slate-200 dark:border-terminal-border bg-slate-50/80 dark:bg-terminal-bg/60 space-y-2">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400">
+                            <span class="font-bold">可做空條件勾選（多選採交集篩選）：</span>
+                            <button type="button" onclick="clearPostMarketChecks('short')" class="text-amber-400 hover:underline font-semibold">清除勾選</button>
+                        </div>
+                        <div id="pm-short-checkboxes" class="flex flex-wrap gap-2"></div>
+                        <div class="pt-1 flex flex-wrap items-center gap-3 text-xs">
+                            <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-terminal-panel border border-slate-200 dark:border-terminal-border cursor-pointer font-semibold">
+                                <input type="checkbox" id="pm-short-no-early-limit" onchange="renderPostMarketTables()" class="rounded text-tw-down focus:ring-0">
+                                <span>前一交易日0930前沒有直接漲跌停</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 dark:border-terminal-border bg-slate-50 dark:bg-terminal-elevated/60 text-[11px] text-slate-400">
+                                    <th class="py-2.5 px-4">代號 / 名稱</th>
+                                    <th class="py-2.5 px-3">低價／高價股</th>
+                                    <th class="py-2.5 px-3">弱勢族群資金退場</th>
+                                    <th class="py-2.5 px-3 text-right">收盤價</th>
+                                    <th class="py-2.5 px-3 text-right">跌幅 (≥5%)</th>
+                                    <th class="py-2.5 px-3 text-right">成交量 (張)</th>
+                                    <th class="py-2.5 px-3">弱勢型態</th>
+                                    <th class="py-2.5 px-4 text-right">加入追蹤清單</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pm-short-tbody" class="divide-y divide-slate-100 dark:divide-terminal-border text-xs sm:text-sm tabular-nums"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             分頁 3：【自選股】
+             - 追蹤清單 1 / 2 / 3 各 20 檔，並支援更改名稱
+             - 拍照上傳更新自選股
+             - 當沖損益與目標價試算僅保留 2.8、1.7 折
+             ===================================================================== -->
+        <section id="tab-watchlist" class="tab-section hidden space-y-4">
+            <!-- 頂部：追蹤清單 1/2/3 分組切換 + 更改名稱 + 拍照上傳更新 + 手動新增 -->
+            <div class="bg-white dark:bg-terminal-panel p-4 rounded-xl border border-slate-200 dark:border-terminal-border flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <!-- 追蹤清單 1 / 2 / 3 頁籤與更改名稱按鈕 -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="switchWatchlistGroup(1)" id="wl-tab-1" class="wl-group-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all flex items-center gap-2">
+                        <span id="wl-label-1">追蹤清單 1</span>
+                        <span id="wl-cap-1" class="font-mono text-xs px-1.5 py-0.2 rounded bg-slate-200 dark:bg-terminal-bg">4 / 20 檔</span>
+                    </button>
+                    <button onclick="switchWatchlistGroup(2)" id="wl-tab-2" class="wl-group-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all flex items-center gap-2">
+                        <span id="wl-label-2">追蹤清單 2</span>
+                        <span id="wl-cap-2" class="font-mono text-xs px-1.5 py-0.2 rounded bg-slate-200 dark:bg-terminal-bg">3 / 20 檔</span>
+                    </button>
+                    <button onclick="switchWatchlistGroup(3)" id="wl-tab-3" class="wl-group-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all flex items-center gap-2">
+                        <span id="wl-label-3">追蹤清單 3</span>
+                        <span id="wl-cap-3" class="font-mono text-xs px-1.5 py-0.2 rounded bg-slate-200 dark:bg-terminal-bg">2 / 20 檔</span>
+                    </button>
+                    <button onclick="openRenameModal()" class="px-3 py-2 rounded-lg text-xs font-bold bg-slate-100 dark:bg-terminal-elevated hover:bg-amber-500/20 text-amber-400 border border-slate-200 dark:border-terminal-border transition-colors flex items-center gap-1">
+                        <span>✏️ 更改名稱</span>
+                    </button>
+                </div>
+
+                <!-- 右側工具：拍照上傳更新 + 快速新增 -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <input type="text" id="wl-quick-add-input" placeholder="輸入代號如 2330" class="w-32 sm:w-36 px-3 py-1.5 text-xs font-mono rounded-lg bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border focus:outline-none focus:ring-1 focus:ring-amber-500">
+                        <button onclick="quickAddWatchlistStock()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-bold transition-colors">
+                            + 加入
+                        </button>
+                    </div>
+                    <button onclick="openPhotoUploadModal()" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm">
+                        <span>📷 拍照上傳更新自選股</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 更改追蹤清單名稱列 (預設隱藏，點擊「更改名稱」展開) -->
+            <div id="wl-rename-panel" class="hidden animate-panel bg-white dark:bg-terminal-panel p-4 rounded-xl border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2 flex-1">
+                    <span class="text-xs font-bold text-amber-400">編輯「<span id="wl-rename-target-name">追蹤清單 1</span>」名稱：</span>
+                    <input type="text" id="wl-rename-input" maxlength="16" placeholder="輸入新清單名稱（最多16字）" class="w-full sm:w-64 px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+                <div class="flex items-center gap-2 self-end sm:self-center">
+                    <button onclick="saveWatchlistName()" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-colors">
+                        儲存名稱
+                    </button>
+                    <button onclick="closeRenameModal()" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-terminal-bg text-slate-400 hover:text-white text-xs font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </div>
+
+            <!-- 拍照上傳更新自選股面板 -->
+            <div id="wl-photo-panel" class="hidden animate-panel bg-white dark:bg-terminal-panel p-4 sm:p-5 rounded-xl border border-amber-500/40 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-terminal-border pb-3">
+                    <div>
+                        <h3 class="font-bold text-sm sm:text-base text-amber-400 flex items-center gap-1.5">
+                            <span>📷 拍照上傳更新自選股（截圖 / 券商庫存 / 看盤畫面辨識）</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">支援開啟相機拍照、上傳看盤截圖，或直接使用範例截圖測試辨識並批次更新至目前追蹤清單</p>
+                    </div>
+                    <button onclick="closePhotoUploadModal()" class="text-slate-400 hover:text-white text-sm px-2 py-1">✕ 關閉</button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                    <!-- 左側：拍照 / 上傳圖片區 -->
+                    <div class="lg:col-span-5 space-y-3">
+                        <div class="flex flex-wrap gap-2">
+                            <label class="flex-1 min-w-[140px] cursor-pointer px-3 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold text-center transition-colors">
+                                📸 拍照 / 選取相片
+                                <input type="file" id="wl-photo-file-input" accept="image/*" capture="environment" onchange="handlePhotoSelected(event)" class="hidden">
+                            </label>
+                            <button type="button" onclick="loadSampleOCRStocks()" class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-terminal-bg hover:bg-slate-800 border border-slate-200 dark:border-terminal-border text-xs font-semibold transition-colors">
+                                🖼️ 載入範例辨識結果
+                            </button>
+                        </div>
+
+                        <div id="wl-photo-preview-box" class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-terminal-bg p-4 min-h-[170px] flex flex-col items-center justify-center text-center">
+                            <div id="wl-photo-placeholder" class="space-y-1">
+                                <div class="text-2xl">🖼️</div>
+                                <p class="text-xs text-slate-400">尚未選擇照片或截圖</p>
+                                <p class="text-[11px] text-slate-500">可拍攝螢幕報價單、券商 App 或點選「載入範例辨識結果」</p>
+                            </div>
+                            <img id="wl-photo-preview-img" alt="上傳截圖預覽" class="hidden max-h-48 rounded-lg object-contain">
+                        </div>
+                    </div>
+
+                    <!-- 右側：辨識股票勾選與匯入模式 -->
+                    <div class="lg:col-span-7 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-xs font-bold text-slate-300">辨識出的股票清單（勾選要更新的標的）：</span>
+                            <div class="flex items-center gap-3 text-xs">
+                                <label class="inline-flex items-center gap-1 cursor-pointer">
+                                    <input type="radio" name="wl-import-mode" value="append" checked class="text-amber-500">
+                                    <span>累加至清單</span>
+                                </label>
+                                <label class="inline-flex items-center gap-1 cursor-pointer">
+                                    <input type="radio" name="wl-import-mode" value="replace" class="text-amber-500">
+                                    <span class="text-amber-400 font-semibold">覆蓋目前清單</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="wl-ocr-candidates" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                            <!-- JS 動態渲染辨識候選股 -->
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-terminal-border">
+                            <span id="wl-ocr-selected-hint" class="text-xs font-mono text-slate-400">已選 0 檔（上限 20 檔）</span>
+                            <button onclick="applyOCRStocksToWatchlist()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-colors">
+                                ✓ 確認更新自選股
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主內容：左側 7 欄自選股清單 + 右側 5 欄當沖損益與目標價試算 (僅保留 2.8、1.7 折) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                <!-- 左側 7 欄：目前追蹤清單 (上限 20 檔) -->
+                <div class="lg:col-span-7 bg-white dark:bg-terminal-panel p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-terminal-border space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-terminal-border pb-3">
+                        <div>
+                            <h3 id="wl-current-title" class="font-bold text-base">追蹤清單 1</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">單一清單最多 20 檔；點擊「試算」可帶入右側當沖損益與目標價計算機</p>
+                        </div>
+                        <span id="wl-current-count-badge" class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-amber-500/15 text-amber-400">4 / 20 檔</span>
+                    </div>
+
+                    <div id="watchlist-items-container" class="space-y-2.5">
+                        <!-- JS 動態渲染 -->
+                    </div>
+                </div>
+
+                <!-- 右側 5 欄：當沖損益與目標價試算小工具 (僅保留 2.8、1.7 折) -->
+                <div class="lg:col-span-5 bg-white dark:bg-terminal-panel p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-terminal-border sticky top-20 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-terminal-border pb-3">
+                        <div>
+                            <h3 class="font-bold text-base">🧮 當沖損益與目標價試算</h3>
+                            <p class="text-[11px] text-slate-400 mt-0.5">手續費折數提供 2.8 折、1.7 折（當沖證交稅 0.15%）</p>
+                        </div>
+                        <span id="calc-stock-label" class="px-2 py-1 text-xs font-mono font-bold rounded-lg bg-slate-100 dark:bg-terminal-bg text-amber-400">自訂試算</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">買進價格 (元)</label>
+                            <input type="number" id="calc-buy-price" value="312.5" step="0.5" oninput="calculateDayTrade()" class="w-full px-3 py-2 rounded-lg bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">交易張數</label>
+                            <input type="number" id="calc-sheets" value="2" min="1" max="999" oninput="calculateDayTrade()" class="w-full px-3 py-2 rounded-lg bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-400 mb-1.5">手續費折數（僅保留 2.8 折、1.7 折）</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="setFeeDiscount(0.28)" data-disc="0.28" class="disc-btn py-2 rounded-lg text-xs font-mono font-bold border transition-colors">2.8 折</button>
+                                <button onclick="setFeeDiscount(0.17)" data-disc="0.17" class="disc-btn py-2 rounded-lg text-xs font-mono font-bold border transition-colors">1.7 折</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 rounded-xl bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">買進總成本</span>
+                            <span id="calc-total-cost" class="font-mono font-bold">NT$ 0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">預估摩擦成本 (來回手續費+0.15%稅)</span>
+                            <span id="calc-friction" class="font-mono font-bold text-amber-400">NT$ 0</span>
+                        </div>
+                        <div class="pt-2 border-t border-slate-200 dark:border-terminal-border flex justify-between items-center">
+                            <span class="font-bold">損益兩平賣出價</span>
+                            <div class="text-right">
+                                <span id="calc-breakeven" class="font-mono text-base font-bold text-amber-400">-</span>
+                                <span id="calc-breakeven-ticks" class="block text-[11px] font-mono text-slate-400"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 目標價與檔位淨利試算表 -->
+                    <div class="overflow-hidden rounded-xl border border-slate-200 dark:border-terminal-border">
+                        <table class="w-full text-xs text-left font-mono">
+                            <thead class="bg-slate-100 dark:bg-terminal-bg text-slate-400 font-sans">
+                                <tr>
+                                    <th class="py-2 px-3">目標賣價</th>
+                                    <th class="py-2 px-2">檔位</th>
+                                    <th class="py-2 px-2 text-right">預估淨利</th>
+                                    <th class="py-2 px-3 text-right">報酬率</th>
+                                </tr>
+                            </thead>
+                            <tbody id="calc-ticks-table" class="divide-y divide-slate-100 dark:divide-terminal-border"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             分頁 4：【資金流向】
+             - 產業族群資金淨流向排行（億元）
+             - 點選後可查看族群所有股票，並提供兩種排序：
+               1. 資金流向由大到小
+               2. 股東人數由多到少
+             ===================================================================== -->
+        <section id="tab-capital-flow" class="tab-section hidden space-y-4">
+            <div class="bg-white dark:bg-terminal-panel p-4 rounded-xl border border-slate-200 dark:border-terminal-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold">資金流向 — 產業族群資金淨流向排行（億元）</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">點擊任一產業族群查看該族群所有股票，並可切換「資金流向由大到小」或「股東人數由多到少」排序</p>
+                </div>
+                <span class="text-xs font-mono px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-terminal-bg text-amber-400 self-start sm:self-center">單位：新台幣 億元</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                <!-- 左側 5 欄：產業族群資金淨流向排行（億元） -->
+                <div class="lg:col-span-5 bg-white dark:bg-terminal-panel rounded-xl border border-slate-200 dark:border-terminal-border overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-200 dark:border-terminal-border bg-slate-50 dark:bg-terminal-elevated/60 flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-400">產業族群淨流向排行（點選查看成分股）</span>
+                        <span class="text-[11px] font-mono text-slate-400">億元</span>
+                    </div>
+                    <div id="sector-flow-ranking-list" class="divide-y divide-slate-100 dark:divide-terminal-border">
+                        <!-- JS 動態渲染 -->
+                    </div>
+                </div>
+
+                <!-- 右側 7 欄：點選族群後顯示所有股票 + 雙排序切換 -->
+                <div class="lg:col-span-7 bg-white dark:bg-terminal-panel rounded-xl border border-slate-200 dark:border-terminal-border overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-200 dark:border-terminal-border bg-slate-50 dark:bg-terminal-elevated/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div>
+                            <h3 id="flow-detail-sector-title" class="text-sm font-bold text-amber-400">AI伺服器 族群成分股明細</h3>
+                            <p id="flow-detail-sector-sub" class="text-[11px] text-slate-400">共 4 檔成分股</p>
+                        </div>
+
+                        <!-- 兩種排序按鈕：資金流向由大到小 / 股東人數由多到少 -->
+                        <div class="flex items-center gap-1.5 bg-white dark:bg-terminal-bg p-1 rounded-lg border border-slate-200 dark:border-terminal-border self-start sm:self-center">
+                            <button onclick="setFlowStockSort('flowDesc')" id="sort-flow-desc" class="px-2.5 py-1 rounded-md text-xs font-bold transition-colors">
+                                資金流向由大到小 ↓
+                            </button>
+                            <button onclick="setFlowStockSort('holdersDesc')" id="sort-holders-desc" class="px-2.5 py-1 rounded-md text-xs font-bold transition-colors">
+                                股東人數由多到少 ↓
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 dark:border-terminal-border bg-slate-50/70 dark:bg-terminal-elevated/40 text-[11px] text-slate-400">
+                                    <th class="py-2.5 px-4">代號 / 股票名稱</th>
+                                    <th class="py-2.5 px-3 text-right">股價 / 漲跌</th>
+                                    <th class="py-2.5 px-3 text-right">資金流向 (億元)</th>
+                                    <th class="py-2.5 px-3 text-right">股東人數</th>
+                                    <th class="py-2.5 px-4 text-right">自選</th>
+                                </tr>
+                            </thead>
+                            <tbody id="flow-sector-stocks-tbody" class="divide-y divide-slate-100 dark:divide-terminal-border text-xs sm:text-sm tabular-nums">
+                                <!-- JS 動態渲染 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 手機版底部固定導覽列（依序：盤中雷達、盤後選股、自選股、資金流向） -->
+    <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-terminal-panel/95 backdrop-blur border-t border-slate-200 dark:border-terminal-border px-1 py-1.5 flex justify-around items-center">
+        <button onclick="switchTab('intraday-radar')" data-tab="intraday-radar" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[11px] font-semibold transition-colors">
+            <span class="text-base mb-0.5">📡</span>
+            <span>盤中雷達</span>
+        </button>
+        <button onclick="switchTab('post-market')" data-tab="post-market" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[11px] font-semibold transition-colors">
+            <span class="text-base mb-0.5">📊</span>
+            <span>盤後選股</span>
+        </button>
+        <button onclick="switchTab('watchlist')" data-tab="watchlist" class="mobile-nav-btn relative flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[11px] font-semibold transition-colors">
+            <span class="text-base mb-0.5">⭐</span>
+            <span>自選股</span>
+            <span id="mobile-watchlist-badge" class="absolute top-0.5 right-1 px-1 text-[9px] rounded-full bg-amber-500 text-slate-950 font-mono font-bold">9</span>
+        </button>
+        <button onclick="switchTab('capital-flow')" data-tab="capital-flow" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[11px] font-semibold transition-colors">
+            <span class="text-base mb-0.5">🌊</span>
+            <span>資金流向</span>
+        </button>
+    </nav>
+
+    <script>
+        // =====================================================================
+        // 1. 核心策略常數與模擬資料庫
+        // =====================================================================
+        const SHORT_RADAR_CONDITIONS = [
+            { id: 'strong_fund_exit', label: '強勢資金退場' },
+            { id: 'next_5m_weak_low_vol', label: '下一根5分k依舊弱勢無量' },
+            { id: 'leader_5m_surge_6', label: '領跌股5分K漲幅 ≥ 6%' }
+        ];
+
+        const INTRADAY_LONG_SIGNALS = [
+            {
+                code: '3363', name: '上詮', sector: '矽光子CPO',
+                price: 248.5, changePct: 9.10, surge5mPct: 7.4,
+                strongFundInflow: true, next5mStrong: true,
+                note: '5分K急拉逾6.8%，次根5分K站穩均價續強'
+            },
+            {
+                code: '3131', name: '弘塑', sector: '半導體設備',
+                price: 1690.0, changePct: 7.35, surge5mPct: 7.1,
+                strongFundInflow: true, next5mStrong: true,
+                note: '主力資金大舉進場，次根5分K高檔不墜'
+            },
+            {
+                code: '3450', name: '聯鈞', sector: '矽光子CPO',
+                price: 221.0, changePct: 6.95, surge5mPct: 6.9,
+                strongFundInflow: true, next5mStrong: false,
+                note: '5分K漲幅達標，次根5分K進入高檔震盪'
+            }
+        ];
+
+        const INTRADAY_SHORT_SIGNALS = [
+            {
+                code: '3661', name: '世芯-KY', sector: '矽智財IP',
+                price: 2115.0, changePct: -5.80,
+                shortConds: ['strong_fund_exit', 'next_5m_weak_low_vol', 'leader_5m_surge_6'],
+                note: '資金明顯撤出，次根5分K量縮走弱'
+            },
+            {
+                code: '1519', name: '華城', sector: '重電綠能',
+                price: 662.0, changePct: -5.65,
+                shortConds: ['strong_fund_exit', 'next_5m_weak_low_vol'],
+                note: '弱勢退場訊號出現，反彈無量續弱'
+            },
+            {
+                code: '3443', name: '創意', sector: '矽智財IP',
+                price: 1165.0, changePct: -5.20,
+                shortConds: ['strong_fund_exit', 'leader_5m_surge_6'],
+                note: '盤中賣壓湧現，族群資金流出'
+            }
+        ];
+
+        const INTRADAY_SECTORS = [
+            { sector: '矽光子CPO', scale: 412, changePct: 5.42, inflowPct: 78, outflowPct: 22, leader: '3363 上詮' },
+            { sector: '半導體設備', scale: 538, changePct: 4.18, inflowPct: 72, outflowPct: 28, leader: '3131 弘塑' },
+            { sector: 'AI伺服器', scale: 890, changePct: 3.15, inflowPct: 66, outflowPct: 34, leader: '2382 廣達' },
+            { sector: '被動元件', scale: 265, changePct: 2.04, inflowPct: 58, outflowPct: 42, leader: '2327 國巨' },
+            { sector: '重電綠能', scale: 310, changePct: -3.45, inflowPct: 26, outflowPct: 74, leader: '1519 華城' },
+            { sector: '矽智財IP', scale: 475, changePct: -4.28, inflowPct: 21, outflowPct: 79, leader: '3661 世芯-KY' }
+        ];
+
+        const LONG_POST_CONDITIONS = [
+            { id: 'above_ma5', label: '站上5日線（週線）' },
+            { id: 'above_ma20', label: '站上20日線（月線）' },
+            { id: 'above_ma60', label: '站上60日線（季線）' },
+            { id: 'vol_60m_surge', label: '60分K爆量上攻（量比>2x）' },
+            { id: 'break_bb_upper', label: '突破布林上軌' },
+            { id: 'inst_sync_buy', label: '外資投信同步買超' }
+        ];
+
+        const SHORT_POST_CONDITIONS = [
+            { id: 'below_ma5', label: '跌破5日線（週線）' },
+            { id: 'below_ma20', label: '跌破20日線（月線）' },
+            { id: 'below_ma60', label: '跌破60日線（季線）' },
+            { id: 'vol_60m_dump', label: '60分K爆量下殺（量比>2x）' },
+            { id: 'break_bb_lower', label: '跌破布林下軌' },
+            { id: 'inst_sync_sell', label: '外資投信同步賣超' }
+        ];
+
+        const POST_MARKET_LONG = [
+            {
+                code: '3363', name: '上詮', sector: '矽光子CPO',
+                price: 248.5, changePct: 9.10, volume: 18420,
+                noEarlyLimitPrevDay: true,
+                conds: ['above_ma5', 'above_ma20', 'above_ma60', 'vol_60m_surge', 'break_bb_upper', 'inst_sync_buy'],
+                pattern: '站上5/20/60MA ＋ 60分K爆量 ＋ 突破布林上軌 ＋ 土洋同買'
+            },
+            {
+                code: '3131', name: '弘塑', sector: '半導體設備',
+                price: 1690.0, changePct: 7.35, volume: 4260,
+                noEarlyLimitPrevDay: true,
+                conds: ['above_ma5', 'above_ma20', 'above_ma60', 'vol_60m_surge', 'inst_sync_buy'],
+                pattern: '均線多頭排列 ＋ 60分K放量 ＋ 外資投信同步買超'
+            },
+            {
+                code: '3450', name: '聯鈞', sector: '矽光子CPO',
+                price: 221.0, changePct: 6.95, volume: 12650,
+                noEarlyLimitPrevDay: false,
+                conds: ['above_ma5', 'above_ma20', 'break_bb_upper', 'inst_sync_buy'],
+                pattern: '站上週/月線 ＋ 突破布林上軌 ＋ 外資投信同步買超'
+            }
+        ];
+
+        const POST_MARKET_SHORT = [
+            {
+                code: '3661', name: '世芯-KY', sector: '矽智財IP',
+                price: 2115.0, changePct: -5.80, volume: 3840,
+                noEarlyLimitPrevDay: true,
+                conds: ['below_ma5', 'below_ma20', 'below_ma60', 'vol_60m_dump', 'break_bb_lower', 'inst_sync_sell'],
+                pattern: '跌破5/20/60MA ＋ 60分K爆量下殺 ＋ 跌破布林下軌 ＋ 土洋同賣'
+            },
+            {
+                code: '1519', name: '華城', sector: '重電綠能',
+                price: 662.0, changePct: -5.65, volume: 7920,
+                noEarlyLimitPrevDay: true,
+                conds: ['below_ma5', 'below_ma20', 'break_bb_lower', 'inst_sync_sell'],
+                pattern: '跌破週/月線 ＋ 跌破布林下軌 ＋ 外資投信同步賣超'
+            },
+            {
+                code: '2448', name: '晶電富采', sector: '光電顯示',
+                price: 46.8, changePct: -5.25, volume: 9450,
+                noEarlyLimitPrevDay: true,
+                conds: ['below_ma5', 'below_ma20', 'below_ma60', 'vol_60m_dump'],
+                pattern: '低價股破多條均線 ＋ 60分K爆量下殺'
+            }
+        ];
+
+        const OCR_SAMPLE_CANDIDATES = [
+            { code: '2330', name: '台積電', price: 1045.0, changePct: 1.45 },
+            { code: '2382', name: '廣達', price: 314.0, changePct: 5.20 },
+            { code: '3363', name: '上詮', price: 248.5, changePct: 9.10 },
+            { code: '3131', name: '弘塑', price: 1690.0, changePct: 7.35 },
+            { code: '2327', name: '國巨', price: 652.0, changePct: 3.10 },
+            { code: '3661', name: '世芯-KY', price: 2115.0, changePct: -5.80 }
+        ];
+
+        const SECTOR_FLOW_DB = [
+            {
+                sector: 'AI伺服器', netFlow: 68.5, changePct: 3.42,
+                stocks: [
+                    { code: '2382', name: '廣達', price: 314.0, changePct: 5.20, flow: 34.2, holders: 418200 },
+                    { code: '3231', name: '緯創', price: 112.5, changePct: 2.18, flow: 19.6, holders: 682400 },
+                    { code: '3017', name: '奇鋐', price: 695.0, changePct: 5.46, flow: 14.7, holders: 124500 }
+                ]
+            },
+            {
+                sector: '半導體設備', netFlow: 45.2, changePct: 4.15,
+                stocks: [
+                    { code: '3131', name: '弘塑', price: 1690.0, changePct: 7.35, flow: 22.4, holders: 28900 },
+                    { code: '3583', name: '辛耘', price: 452.0, changePct: 4.80, flow: 14.1, holders: 41200 },
+                    { code: '6187', name: '萬潤', price: 418.0, changePct: 3.21, flow: 8.7, holders: 35600 }
+                ]
+            },
+            {
+                sector: '矽光子CPO', netFlow: 39.8, changePct: 5.64,
+                stocks: [
+                    { code: '3363', name: '上詮', price: 248.5, changePct: 9.10, flow: 18.9, holders: 54300 },
+                    { code: '3450', name: '聯鈞', price: 221.0, changePct: 6.95, flow: 13.5, holders: 67800 },
+                    { code: '4979', name: '華星光', price: 176.5, changePct: 4.12, flow: 7.4, holders: 89100 }
+                ]
+            },
+            {
+                sector: '重電綠能', netFlow: -18.6, changePct: -2.45,
+                stocks: [
+                    { code: '1519', name: '華城', price: 662.0, changePct: -5.65, flow: -11.2, holders: 94200 },
+                    { code: '1513', name: '中興電', price: 168.0, changePct: -1.47, flow: -4.8, holders: 112600 },
+                    { code: '1503', name: '士電', price: 244.0, changePct: -1.21, flow: -2.6, holders: 63400 }
+                ]
+            }
+        ];
+
+        // =====================================================================
+        // 2. 全域狀態管理與本機儲存 (localStorage)
+        // =====================================================================
+        const WATCHLIST_LIMIT = 20;
+        const STORAGE_KEY = 'speed_screener_2_0_state_v1';
+
+        let state = {
+            activeTab: 'intraday-radar',
+            radarDirection: 'long', // 'long' | 'short'
+            radarShortSelectedConds: [],
+            postMarketMode: 'long', // 'long' | 'short' | 'split'
+            shortPriceTier: 'ALL', // 'ALL' | 'LOW' | 'HIGH'
+            pmLongSelectedConds: [],
+            pmShortSelectedConds: [],
+            activeWatchlistGroup: 1,
+            watchlistNames: {
+                1: '追蹤清單 1',
+                2: '追蹤清單 2',
+                3: '追蹤清單 3'
+            },
+            watchlists: {
+                1: [
+                    { code: '2382', name: '廣達', price: 314.0, changePct: 5.20 },
+                    { code: '3363', name: '上詮', price: 248.5, changePct: 9.10 },
+                    { code: '3131', name: '弘塑', price: 1690.0, changePct: 7.35 },
+                    { code: '2327', name: '國巨', price: 652.0, changePct: 3.10 }
+                ],
+                2: [
+                    { code: '3450', name: '聯鈞', price: 221.0, changePct: 6.95 },
+                    { code: '3583', name: '辛耘', price: 452.0, changePct: 4.80 },
+                    { code: '2383', name: '台光電', price: 528.0, changePct: 7.12 }
+                ],
+                3: [
+                    { code: '3661', name: '世芯-KY', price: 2115.0, changePct: -5.80 },
+                    { code: '1519', name: '華城', price: 662.0, changePct: -5.65 }
+                ]
+            },
+            ocrCandidates: [],
+            ocrSelectedCodes: new Set(),
+            feeDiscount: 0.28, // 僅保留 0.28 (2.8折) 與 0.17 (1.7折)
+            selectedFlowSector: 'AI伺服器',
+            flowStockSort: 'flowDesc' // 'flowDesc' | 'holdersDesc'
+        };
+
+        function saveStateToStorage() {
+            try {
+                const payload = {
+                    activeWatchlistGroup: state.activeWatchlistGroup,
+                    watchlistNames: state.watchlistNames,
+                    watchlists: state.watchlists,
+                    feeDiscount: state.feeDiscount,
+                    selectedFlowSector: state.selectedFlowSector,
+                    flowStockSort: state.flowStockSort
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (err) {
+                console.warn('無法寫入 localStorage：', err);
+            }
+        }
+
+        function loadStateFromStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                if (saved.watchlistNames) {
+                    state.watchlistNames = { ...state.watchlistNames, ...saved.watchlistNames };
+                }
+                if (saved.watchlists) {
+                    state.watchlists = {
+                        1: Array.isArray(saved.watchlists[1]) ? saved.watchlists[1].slice(0, WATCHLIST_LIMIT) : state.watchlists[1],
+                        2: Array.isArray(saved.watchlists[2]) ? saved.watchlists[2].slice(0, WATCHLIST_LIMIT) : state.watchlists[2],
+                        3: Array.isArray(saved.watchlists[3]) ? saved.watchlists[3].slice(0, WATCHLIST_LIMIT) : state.watchlists[3]
+                    };
+                }
+                if ([1, 2, 3].includes(saved.activeWatchlistGroup)) {
+                    state.activeWatchlistGroup = saved.activeWatchlistGroup;
+                }
+                if ([0.28, 0.17].includes(saved.feeDiscount)) {
+                    state.feeDiscount = saved.feeDiscount;
+                }
+                if (saved.selectedFlowSector) {
+                    state.selectedFlowSector = saved.selectedFlowSector;
+                }
+                if (['flowDesc', 'holdersDesc'].includes(saved.flowStockSort)) {
+                    state.flowStockSort = saved.flowStockSort;
+                }
+            } catch (err) {
+                console.warn('讀取 localStorage 失敗，使用預設資料：', err);
+            }
+        }
+
+        function registerPWASupport() {
+            try {
+                const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="36" fill="#111622"/><rect x="16" y="16" width="160" height="160" rx="28" fill="#f59e0b"/><text x="96" y="114" text-anchor="middle" font-family="monospace" font-size="64" font-weight="700" fill="#0a0d14">2.0</text></svg>`;
+                const iconUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg)}`;
+                const manifest = {
+                    name: '極速選股 2.0',
+                    short_name: '極速選股 2.0',
+                    start_url: '.',
+                    display: 'standalone',
+                    background_color: '#0a0d14',
+                    theme_color: '#111622',
+                    icons: [
+                        { src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+                        { src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }
+                    ]
+                };
+                const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+                const manifestLink = document.createElement('link');
+                manifestLink.rel = 'manifest';
+                manifestLink.href = URL.createObjectURL(manifestBlob);
+                document.head.appendChild(manifestLink);
+
+                if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+                    const swCode = `
+                        self.addEventListener('install', event => {
+                            self.skipWaiting();
+                        });
+                        self.addEventListener('activate', event => {
+                            event.waitUntil(self.clients.claim());
+                        });
+                    `;
+                    const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+                }
+            } catch (err) {
+                console.warn('PWA 初始化略過：', err);
+            }
+        }
+
+        // =====================================================================
+        // 3. 初始化與主題 / 分頁切換
+        // =====================================================================
+        window.onload = function() {
+            loadStateFromStorage();
+            registerPWASupport();
+
+            renderRadarShortCheckboxes();
+            setRadarDirection('long');
+
+            renderPostMarketLongCheckboxes();
+            renderPostMarketShortCheckboxes();
+            setPostMarketMode('long');
+            setShortPriceTier('ALL');
+
+            switchWatchlistGroup(state.activeWatchlistGroup);
+            setFeeDiscount(state.feeDiscount);
+
+            renderCapitalFlowSection();
+
+            switchTab('intraday-radar');
+        };
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            showToast('已切換深淺色看盤主題', 'info');
+        }
+
+        function switchTab(tabId) {
+            state.activeTab = tabId;
+            document.querySelectorAll('.tab-section').forEach(sec => sec.classList.add('hidden'));
+            const target = document.getElementById(`tab-${tabId}`);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabId) {
+                    btn.classList.add('bg-white', 'dark:bg-terminal-panel', 'text-amber-500', 'dark:text-amber-400', 'shadow-sm', 'font-bold');
+                } else {
+                    btn.classList.remove('bg-white', 'dark:bg-terminal-panel', 'text-amber-500', 'dark:text-amber-400', 'shadow-sm', 'font-bold');
+                }
+            });
+
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabId) {
+                    btn.classList.add('text-amber-500', 'bg-amber-500/10');
+                } else {
+                    btn.classList.remove('text-amber-500', 'bg-amber-500/10');
+                }
+            });
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const borderMap = {
+                success: 'border-emerald-500/60',
+                alert: 'border-tw-up',
+                info: 'border-amber-500/60'
+            };
+            toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl bg-slate-900 text-white border ${borderMap[type] || borderMap.info} shadow-xl text-xs font-medium animate-panel`;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 220);
+            }, 2600);
+        }
+
+        // =====================================================================
+        // 4. 分頁 1：【盤中雷達】多空切換、盤中多/空即時觸發篩選與族群資金進出比例排序
+        // =====================================================================
+        function setRadarDirection(dir) {
+            state.radarDirection = dir;
+            const longBtn = document.getElementById('radar-dir-long');
+            const shortBtn = document.getElementById('radar-dir-short');
+            const longFilterBox = document.getElementById('radar-long-filter-box');
+            const shortFilterBox = document.getElementById('radar-short-filter-box');
+            const titleEl = document.getElementById('radar-signal-title');
+            const tableHeading = document.getElementById('radar-table-heading');
+            const sortColHeader = document.getElementById('radar-sort-col-header');
+
+            if (dir === 'long') {
+                longBtn.className = 'px-3 py-1 rounded-md text-xs font-bold bg-tw-up text-white shadow-sm transition-all';
+                shortBtn.className = 'px-3 py-1 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 transition-all';
+                longFilterBox.classList.remove('hidden');
+                shortFilterBox.classList.add('hidden');
+                titleEl.className = 'text-xs font-bold text-tw-up flex items-center gap-1.5';
+                titleEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-tw-up animate-ping"></span><span>盤中多方即時觸發個股篩選條件：強勢資金進場 ＋ 領漲股5分K漲幅 ≥ 6.8% 並於下一根5分依舊強勢</span>`;
+                tableHeading.textContent = '全市場族群資金進出比例即時排行（盤中多方模式：資金流入比例由高到低 ↓）';
+                sortColHeader.textContent = '族群資金進出比例 (流入比例高→低 ↓)';
+            } else {
+                shortBtn.className = 'px-3 py-1 rounded-md text-xs font-bold bg-tw-down text-slate-950 shadow-sm transition-all';
+                longBtn.className = 'px-3 py-1 rounded-md text-xs font-bold text-slate-500 dark:text-slate-400 transition-all';
+                longFilterBox.classList.add('hidden');
+                shortFilterBox.classList.remove('hidden');
+                titleEl.className = 'text-xs font-bold text-tw-down flex items-center gap-1.5';
+                titleEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-tw-down animate-pulse"></span><span>盤中空方即時觸發個股篩選條件：強勢資金退場、下一根5分k依舊弱勢無量、領跌股5分K漲幅 ≥ 6%</span>`;
+                tableHeading.textContent = '全市場族群資金進出比例即時排行（盤中空方模式：資金流出比例由高到低 ↓）';
+                sortColHeader.textContent = '族群資金進出比例 (流出比例高→低 ↓)';
+            }
+
+            renderRadarLiveSignals();
+            renderRadarSectors();
+        }
+
+        function resetRadarLongFilters() {
+            document.getElementById('radar-long-strong-fund').checked = true;
+            document.getElementById('radar-long-5m-surge').checked = true;
+            document.getElementById('radar-long-next-5m-strong').checked = true;
+            renderRadarLiveSignals();
+        }
+
+        function renderRadarShortCheckboxes() {
+            const box = document.getElementById('radar-short-checkboxes');
+            box.innerHTML = SHORT_RADAR_CONDITIONS.map(c => {
+                const checked = state.radarShortSelectedConds.includes(c.id);
+                return `
+                    <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${
+                        checked
+                        ? 'bg-tw-downBg border-tw-down text-tw-down'
+                        : 'bg-white dark:bg-terminal-panel border-slate-200 dark:border-terminal-border text-slate-600 dark:text-slate-300'
+                    }">
+                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleRadarShortCond('${c.id}')" class="rounded text-tw-down focus:ring-0">
+                        <span>${c.label}</span>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function toggleRadarShortCond(condId) {
+            const idx = state.radarShortSelectedConds.indexOf(condId);
+            if (idx > -1) state.radarShortSelectedConds.splice(idx, 1);
+            else state.radarShortSelectedConds.push(condId);
+            renderRadarShortCheckboxes();
+            renderRadarLiveSignals();
+        }
+
+        function clearRadarShortConditions() {
+            state.radarShortSelectedConds = [];
+            renderRadarShortCheckboxes();
+            renderRadarLiveSignals();
+        }
+
+        function renderRadarLiveSignals() {
+            const container = document.getElementById('radar-live-signals');
+            const countEl = document.getElementById('radar-signal-count');
+
+            if (state.radarDirection === 'long') {
+                const needStrongFund = document.getElementById('radar-long-strong-fund').checked;
+                const need5mSurge = document.getElementById('radar-long-5m-surge').checked;
+                const needNext5mStrong = document.getElementById('radar-long-next-5m-strong').checked;
+
+                const matched = INTRADAY_LONG_SIGNALS.filter(item => {
+                    if (needStrongFund && !item.strongFundInflow) return false;
+                    if (need5mSurge && item.surge5mPct < 6.8) return false;
+                    if (needNext5mStrong && !item.next5mStrong) return false;
+                    return true;
+                });
+
+                countEl.textContent = `符合 ${matched.length} 檔`;
+
+                if (matched.length === 0) {
+                    container.innerHTML = `<div class="col-span-full p-4 rounded-xl bg-slate-50 dark:bg-terminal-bg text-xs text-slate-400 text-center">目前無同時符合所勾選多方條件的盤中個股</div>`;
+                    return;
+                }
+
+                container.innerHTML = matched.map(s => `
+                    <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-terminal-bg border border-tw-up/30 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="font-bold text-sm">${s.name}</span>
+                                <span class="font-mono text-xs text-slate-400 ml-1">${s.code}</span>
+                                <span class="ml-1.5 text-[11px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-terminal-elevated text-slate-500 dark:text-slate-300">${s.sector}</span>
+                            </div>
+                            <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-tw-upBg text-tw-up">+${s.surge5mPct.toFixed(1)}% (5分K)</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs font-mono">
+                            <span class="text-tw-up font-bold">${s.price.toFixed(1)} (▲${s.changePct.toFixed(2)}%)</span>
+                            <span class="text-amber-400 font-semibold">${s.next5mStrong ? '✓ 次根5分K續強' : '次根5分K轉弱'}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">${s.note}</p>
+                    </div>
+                `).join('');
+            } else {
+                const matched = INTRADAY_SHORT_SIGNALS.filter(item =>
+                    state.radarShortSelectedConds.every(cId => item.shortConds.includes(cId))
+                );
+
+                countEl.textContent = `符合 ${matched.length} 檔`;
+
+                if (matched.length === 0) {
+                    container.innerHTML = `<div class="col-span-full p-4 rounded-xl bg-slate-50 dark:bg-terminal-bg text-xs text-slate-400 text-center">目前無同時符合所勾選空方條件的盤中個股</div>`;
+                    return;
+                }
+
+                container.innerHTML = matched.map(s => {
+                    const labels = s.shortConds.map(id => {
+                        const found = SHORT_RADAR_CONDITIONS.find(c => c.id === id);
+                        return found ? found.label : id;
+                    });
+                    return `
+                        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-terminal-bg border border-tw-down/30 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="font-bold text-sm">${s.name}</span>
+                                    <span class="font-mono text-xs text-slate-400 ml-1">${s.code}</span>
+                                    <span class="ml-1.5 text-[11px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-terminal-elevated text-slate-500 dark:text-slate-300">${s.sector}</span>
+                                </div>
+                                <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-tw-downBg text-tw-down">${s.changePct.toFixed(2)}%</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="text-tw-down font-bold">${s.price.toFixed(1)}</span>
+                                <span class="text-slate-400 font-sans text-[11px]">符合：${labels.join('、')}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400">${s.note}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function renderRadarSectors() {
+            const sorted = [...INTRADAY_SECTORS].sort((a, b) =>
+                state.radarDirection === 'long'
+                    ? b.inflowPct - a.inflowPct
+                    : b.outflowPct - a.outflowPct
+            );
+
+            const topCards = document.getElementById('radar-top-cards');
+            topCards.innerHTML = sorted.slice(0, 4).map((sec, idx) => {
+                const isLong = state.radarDirection === 'long';
+                const ratioVal = isLong ? sec.inflowPct : sec.outflowPct;
+                const badgeColor = isLong ? 'text-tw-up bg-tw-upBg' : 'text-tw-down bg-tw-downBg';
+                return `
+                    <div class="bg-white dark:bg-terminal-panel p-3.5 rounded-xl border border-slate-200 dark:border-terminal-border space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-mono text-slate-400">#${idx + 1}</span>
+                            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded ${badgeColor}">
+                                ${isLong ? '流入' : '流出'} ${ratioVal}%
+                            </span>
+                        </div>
+                        <div class="font-bold text-sm">${sec.sector}</div>
+                        <div class="w-full h-2 rounded-full bg-slate-200 dark:bg-terminal-bg overflow-hidden flex">
+                            <div class="bg-tw-up h-full" style="width:${sec.inflowPct}%"></div>
+                            <div class="bg-tw-down h-full" style="width:${sec.outflowPct}%"></div>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                            <span>指標：${sec.leader}</span>
+                            <span class="${sec.changePct >= 0 ? 'text-tw-up' : 'text-tw-down'}">${sec.changePct >= 0 ? '+' : ''}${sec.changePct.toFixed(2)}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const tbody = document.getElementById('radar-table-body');
+            tbody.innerHTML = sorted.map((sec, idx) => {
+                const isUp = sec.changePct >= 0;
+                return `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-terminal-hover transition-colors">
+                        <td class="py-3 px-4 font-mono font-bold text-amber-400">#${idx + 1}</td>
+                        <td class="py-3 px-3 font-bold">${sec.sector}</td>
+                        <td class="py-3 px-3 text-right font-mono">${sec.scale} 億</td>
+                        <td class="py-3 px-3 text-right font-mono font-bold ${isUp ? 'text-tw-up' : 'text-tw-down'}">
+                            ${isUp ? '+' : ''}${sec.changePct.toFixed(2)}%
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[11px] font-mono">
+                                    <span class="text-tw-up font-bold">流入 ${sec.inflowPct}%</span>
+                                    <span class="text-tw-down font-bold">流出 ${sec.outflowPct}%</span>
+                                </div>
+                                <div class="w-full h-2.5 rounded-full bg-slate-200 dark:bg-terminal-bg overflow-hidden flex">
+                                    <div class="bg-tw-up h-full transition-all duration-300" style="width:${sec.inflowPct}%"></div>
+                                    <div class="bg-tw-down h-full transition-all duration-300" style="width:${sec.outflowPct}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3 px-3 text-xs font-mono text-slate-300">${sec.leader}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="addLeaderToWatchlist('${sec.leader.replace(/'/g, "\\'")}', ${sec.changePct})" class="px-2.5 py-1 rounded-lg bg-tw-downBg hover:bg-tw-down/25 text-tw-down text-xs font-bold">+ 追蹤</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function addLeaderToWatchlist(leaderText, changePct) {
+            const parts = String(leaderText || '').trim().split(/\s+/);
+            const code = parts[0] || '2330';
+            const name = parts.slice(1).join(' ') || `指標股${code}`;
+            const found = OCR_SAMPLE_CANDIDATES.find(item => item.code === code);
+            const price = found ? found.price : 150.0;
+            const pct = found ? found.changePct : Number(changePct || 0);
+            addStockToActiveWatchlist(code, name, price, pct);
+        }
+
+        function simulateRadarTick() {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('radar-timestamp').textContent = `${hh}:${mm}:${ss}`;
+
+            INTRADAY_SECTORS.forEach(sec => {
+                const delta = Math.floor(Math.random() * 5) - 2;
+                sec.inflowPct = Math.min(88, Math.max(12, sec.inflowPct + delta));
+                sec.outflowPct = 100 - sec.inflowPct;
+                sec.changePct = Number((sec.changePct + (Math.random() * 0.6 - 0.3)).toFixed(2));
+            });
+
+            renderRadarSectors();
+            showToast('已更新盤中族群資金進出比例與即時排序', 'info');
+        }
+
+        // =====================================================================
+        // 5. 分頁 2：【盤後選股（可做多／可做空）】整併單一模組
+        // =====================================================================
+        function renderPostMarketLongCheckboxes() {
+            const box = document.getElementById('pm-long-checkboxes');
+            box.innerHTML = LONG_POST_CONDITIONS.map(c => {
+                const checked = state.pmLongSelectedConds.includes(c.id);
+                return `
+                    <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${
+                        checked
+                        ? 'bg-tw-upBg border-tw-up text-tw-up'
+                        : 'bg-white dark:bg-terminal-panel border-slate-200 dark:border-terminal-border text-slate-600 dark:text-slate-300'
+                    }">
+                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="togglePostMarketCond('long', '${c.id}')" class="rounded text-tw-up focus:ring-0">
+                        <span>${c.label}</span>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function renderPostMarketShortCheckboxes() {
+            const box = document.getElementById('pm-short-checkboxes');
+            box.innerHTML = SHORT_POST_CONDITIONS.map(c => {
+                const checked = state.pmShortSelectedConds.includes(c.id);
+                return `
+                    <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${
+                        checked
+                        ? 'bg-tw-downBg border-tw-down text-tw-down'
+                        : 'bg-white dark:bg-terminal-panel border-slate-200 dark:border-terminal-border text-slate-600 dark:text-slate-300'
+                    }">
+                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="togglePostMarketCond('short', '${c.id}')" class="rounded text-tw-down focus:ring-0">
+                        <span>${c.label}</span>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function togglePostMarketCond(side, condId) {
+            const arr = side === 'long' ? state.pmLongSelectedConds : state.pmShortSelectedConds;
+            const idx = arr.indexOf(condId);
+            if (idx > -1) arr.splice(idx, 1);
+            else arr.push(condId);
+            if (side === 'long') renderPostMarketLongCheckboxes();
+            else renderPostMarketShortCheckboxes();
+            renderPostMarketTables();
+        }
+
+        function clearPostMarketChecks(side) {
+            if (side === 'long') {
+                state.pmLongSelectedConds = [];
+                document.getElementById('pm-long-no-early-limit').checked = false;
+                renderPostMarketLongCheckboxes();
+            } else {
+                state.pmShortSelectedConds = [];
+                document.getElementById('pm-short-no-early-limit').checked = false;
+                renderPostMarketShortCheckboxes();
+            }
+            renderPostMarketTables();
+        }
+
+        function setPostMarketMode(mode) {
+            state.postMarketMode = mode;
+            const btnLong = document.getElementById('pm-btn-long');
+            const btnShort = document.getElementById('pm-btn-short');
+            const btnSplit = document.getElementById('pm-btn-split');
+            const longPanel = document.getElementById('pm-long-panel');
+            const shortPanel = document.getElementById('pm-short-panel');
+            const wrapper = document.getElementById('pm-results-wrapper');
+            const tierGroup = document.getElementById('short-tier-filter-group');
+            const ruleBadge = document.getElementById('pm-rule-badge');
+
+            btnLong.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all flex items-center gap-2 ' +
+                (mode === 'long' ? 'bg-tw-up text-white border-tw-up shadow-sm' : 'bg-slate-100 dark:bg-terminal-bg text-slate-500 border-slate-200 dark:border-terminal-border');
+            btnShort.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all flex items-center gap-2 ' +
+                (mode === 'short' ? 'bg-tw-down text-slate-950 border-tw-down shadow-sm' : 'bg-slate-100 dark:bg-terminal-bg text-slate-500 border-slate-200 dark:border-terminal-border');
+            btnSplit.className = 'px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all ' +
+                (mode === 'split' ? 'bg-amber-500 text-slate-950 border-amber-500 font-bold' : 'bg-slate-100 dark:bg-terminal-bg text-slate-500 border-slate-200 dark:border-terminal-border');
+
+            if (mode === 'long') {
+                longPanel.classList.remove('hidden');
+                shortPanel.classList.add('hidden');
+                wrapper.className = 'grid grid-cols-1 gap-4';
+                tierGroup.classList.add('hidden');
+                ruleBadge.innerHTML = `<span class="px-2 py-0.5 rounded bg-tw-upBg text-tw-up font-bold">做多條件</span><span class="text-slate-400">領漲股漲幅 ≥ 6.8%，可搭配多方技術/籌碼、前一交易日0930前未直接漲跌停與成交張數篩選</span>`;
+            } else if (mode === 'short') {
+                longPanel.classList.add('hidden');
+                shortPanel.classList.remove('hidden');
+                wrapper.className = 'grid grid-cols-1 gap-4';
+                tierGroup.classList.remove('hidden');
+                ruleBadge.innerHTML = `<span class="px-2 py-0.5 rounded bg-tw-downBg text-tw-down font-bold">做空條件</span><span class="text-slate-400">低價／高價股欄位 ＋ 弱勢族群資金退場 ＋ 領漲股跌幅 ≥ 5% ＋ 領跌股5分K漲幅 ≥ 6%</span>`;
+            } else {
+                longPanel.classList.remove('hidden');
+                shortPanel.classList.remove('hidden');
+                wrapper.className = 'grid grid-cols-1 xl:grid-cols-2 gap-4';
+                tierGroup.classList.remove('hidden');
+                ruleBadge.innerHTML = `<span class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-bold">多空並排</span><span class="text-slate-400">可做多（漲幅 ≥ 6.8%）與可做空（弱勢退場、跌幅 ≥ 5%、領跌股5分K漲幅 ≥ 6%）同步檢視</span>`;
+            }
+
+            renderPostMarketTables();
+        }
+
+        function setShortPriceTier(tier) {
+            state.shortPriceTier = tier;
+            document.querySelectorAll('.tier-btn').forEach(btn => {
+                if (btn.dataset.tier === tier) {
+                    btn.className = 'tier-btn px-2.5 py-1 rounded-md text-xs font-bold border border-amber-500 bg-amber-500 text-slate-950 transition-colors';
+                } else {
+                    btn.className = 'tier-btn px-2.5 py-1 rounded-md text-xs font-semibold border border-slate-200 dark:border-terminal-border bg-slate-100 dark:bg-terminal-bg text-slate-400 transition-colors';
+                }
+            });
+            renderPostMarketTables();
+        }
+
+        function renderPostMarketTables() {
+            const minVolInput = document.getElementById('pm-min-volume-input');
+            const minVolume = minVolInput && minVolInput.value !== '' ? parseFloat(minVolInput.value) : 0;
+            const longNoEarlyLimit = document.getElementById('pm-long-no-early-limit')?.checked || false;
+            const shortNoEarlyLimit = document.getElementById('pm-short-no-early-limit')?.checked || false;
+
+            const longList = POST_MARKET_LONG.filter(s => {
+                if (s.changePct < 6.8) return false;
+                if (minVolume > 0 && (s.volume || 0) < minVolume) return false;
+                if (longNoEarlyLimit && !s.noEarlyLimitPrevDay) return false;
+                return state.pmLongSelectedConds.every(cId => s.conds.includes(cId));
+            });
+
+            document.getElementById('pm-long-count').textContent = `${longList.length} 檔`;
+            document.getElementById('pm-long-tbody').innerHTML = longList.length
+                ? longList.map(s => `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-terminal-hover">
+                        <td class="py-3 px-4 font-bold">${s.name} <span class="font-mono text-xs text-slate-400 font-normal">${s.code}</span></td>
+                        <td class="py-3 px-3 text-xs">${s.sector}</td>
+                        <td class="py-3 px-3 text-right font-mono font-bold text-tw-up">${s.price.toFixed(1)}</td>
+                        <td class="py-3 px-3 text-right font-mono font-bold text-tw-up">+${s.changePct.toFixed(2)}%</td>
+                        <td class="py-3 px-3 text-right font-mono text-slate-300">${(s.volume || 0).toLocaleString()} 張</td>
+                        <td class="py-3 px-3 text-xs text-slate-400">${s.pattern}</td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="addStockToActiveWatchlist('${s.code}', '${s.name}', ${s.price}, ${s.changePct})" class="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-xs font-bold">+ 追蹤</button>
+                        </td>
+                    </tr>
+                `).join('')
+                : `<tr><td colspan="7" class="py-6 text-center text-xs text-slate-400">無符合目前勾選條件的可做多標的</td></tr>`;
+
+            const shortList = POST_MARKET_SHORT.filter(s => {
+                if (Math.abs(s.changePct) < 5) return false;
+                if (minVolume > 0 && (s.volume || 0) < minVolume) return false;
+                if (shortNoEarlyLimit && !s.noEarlyLimitPrevDay) return false;
+                if (state.shortPriceTier === 'LOW' && s.price >= 100) return false;
+                if (state.shortPriceTier === 'HIGH' && s.price < 100) return false;
+                return state.pmShortSelectedConds.every(cId => (s.conds || []).includes(cId));
+            });
+
+            document.getElementById('pm-short-count').textContent = `${shortList.length} 檔`;
+            document.getElementById('pm-short-tbody').innerHTML = shortList.length
+                ? shortList.map(s => {
+                    const tierLabel = s.price >= 100
+                        ? `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/15 text-amber-400">高價股 (≥100元)</span>`
+                        : `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 dark:bg-terminal-elevated text-slate-300">低價股 (&lt;100元)</span>`;
+                    return `
+                        <tr class="hover:bg-slate-50 dark:hover:bg-terminal-hover">
+                            <td class="py-3 px-4 font-bold">${s.name} <span class="font-mono text-xs text-slate-400 font-normal">${s.code}</span></td>
+                            <td class="py-3 px-3">${tierLabel}</td>
+                            <td class="py-3 px-3 text-xs text-tw-down font-semibold">${s.sector}（資金退場）</td>
+                            <td class="py-3 px-3 text-right font-mono font-bold text-tw-down">${s.price.toFixed(1)}</td>
+                            <td class="py-3 px-3 text-right font-mono font-bold text-tw-down">${s.changePct.toFixed(2)}%</td>
+                            <td class="py-3 px-3 text-right font-mono text-slate-300">${(s.volume || 0).toLocaleString()} 張</td>
+                            <td class="py-3 px-3 text-xs text-slate-400">${s.pattern}</td>
+                            <td class="py-3 px-4 text-right">
+                                <button onclick="addStockToActiveWatchlist('${s.code}', '${s.name}', ${s.price}, ${s.changePct})" class="px-2.5 py-1 rounded-lg bg-tw-downBg hover:bg-tw-down/25 text-tw-down text-xs font-bold">+ 追蹤</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('')
+                : `<tr><td colspan="8" class="py-6 text-center text-xs text-slate-400">目前篩選條件下無符合的可做空標的</td></tr>`;
+        }
+
+        // =====================================================================
+        // 6. 分頁 3：【自選股】追蹤清單 1/2/3（各 20 檔＋更改名稱）、拍照上傳更新、2.8/1.7 折試算
+        // =====================================================================
+        function switchWatchlistGroup(groupId) {
+            state.activeWatchlistGroup = groupId;
+            [1, 2, 3].forEach(id => {
+                const btn = document.getElementById(`wl-tab-${id}`);
+                if (id === groupId) {
+                    btn.className = 'wl-group-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold border border-amber-500 bg-amber-500 text-slate-950 shadow-sm transition-all flex items-center gap-2';
+                } else {
+                    btn.className = 'wl-group-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold border border-slate-200 dark:border-terminal-border bg-slate-50 dark:bg-terminal-bg text-slate-500 dark:text-slate-400 transition-all flex items-center gap-2';
+                }
+            });
+            closeRenameModal();
+            renderWatchlistUI();
+        }
+
+        function openRenameModal() {
+            const panel = document.getElementById('wl-rename-panel');
+            const currentName = state.watchlistNames[state.activeWatchlistGroup];
+            document.getElementById('wl-rename-target-name').textContent = currentName;
+            const input = document.getElementById('wl-rename-input');
+            input.value = currentName;
+            panel.classList.remove('hidden');
+            input.focus();
+            input.select();
+        }
+
+        function closeRenameModal() {
+            document.getElementById('wl-rename-panel').classList.add('hidden');
+        }
+
+        function saveWatchlistName() {
+            const input = document.getElementById('wl-rename-input');
+            const newName = input.value.trim();
+            if (!newName) {
+                showToast('清單名稱不可為空白', 'alert');
+                return;
+            }
+            const gId = state.activeWatchlistGroup;
+            state.watchlistNames[gId] = newName;
+            saveStateToStorage();
+            closeRenameModal();
+            renderWatchlistUI();
+            showToast(`已將第 ${gId} 組清單更名為「${newName}」`, 'success');
+        }
+
+        function renderWatchlistUI() {
+            const gId = state.activeWatchlistGroup;
+            let totalCount = 0;
+
+            [1, 2, 3].forEach(id => {
+                const len = state.watchlists[id].length;
+                totalCount += len;
+                document.getElementById(`wl-label-${id}`).textContent = state.watchlistNames[id];
+                document.getElementById(`wl-cap-${id}`).textContent = `${len} / ${WATCHLIST_LIMIT} 檔`;
+            });
+
+            document.getElementById('nav-watchlist-total').textContent = totalCount;
+            document.getElementById('mobile-watchlist-badge').textContent = totalCount;
+
+            const currentList = state.watchlists[gId];
+            document.getElementById('wl-current-title').textContent = state.watchlistNames[gId];
+            document.getElementById('wl-current-count-badge').textContent = `${currentList.length} / ${WATCHLIST_LIMIT} 檔`;
+
+            const container = document.getElementById('watchlist-items-container');
+            if (currentList.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-400">此清單目前沒有股票，可使用上方「+ 加入」或「拍照上傳更新自選股」</div>`;
+                return;
+            }
+
+            container.innerHTML = currentList.map((item, idx) => {
+                const isUp = item.changePct >= 0;
+                return `
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-3">
+                            <span class="font-mono text-xs text-slate-500 w-5">${idx + 1}.</span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-sm">${item.name}</span>
+                                    <span class="font-mono text-xs text-slate-400">${item.code}</span>
+                                </div>
+                                <div class="font-mono text-xs font-bold ${isUp ? 'text-tw-up' : 'text-tw-down'}">
+                                    ${item.price.toFixed(1)} (${isUp ? '▲' : '▼'}${Math.abs(item.changePct).toFixed(2)}%)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="loadPriceToCalc('${item.code}', '${item.name}', ${item.price})" class="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-xs font-bold">試算</button>
+                            <button onclick="removeStockFromWatchlist(${gId}, '${item.code}')" class="px-2 py-1 rounded-lg text-slate-400 hover:text-rose-400 text-xs">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addStockToActiveWatchlist(code, name, price, changePct) {
+            const gId = state.activeWatchlistGroup;
+            const list = state.watchlists[gId];
+            if (list.some(s => s.code === code)) {
+                showToast(`${name}(${code}) 已在「${state.watchlistNames[gId]}」中`, 'info');
+                return;
+            }
+            if (list.length >= WATCHLIST_LIMIT) {
+                showToast(`「${state.watchlistNames[gId]}」已達上限 ${WATCHLIST_LIMIT} 檔`, 'alert');
+                return;
+            }
+            list.push({ code, name, price, changePct });
+            saveStateToStorage();
+            renderWatchlistUI();
+            showToast(`已將 ${name}(${code}) 加入「${state.watchlistNames[gId]}」`, 'success');
+        }
+
+        function quickAddWatchlistStock() {
+            const input = document.getElementById('wl-quick-add-input');
+            const code = input.value.trim();
+            if (!code) return;
+            const found = OCR_SAMPLE_CANDIDATES.find(s => s.code === code) || {
+                code,
+                name: `個股${code}`,
+                price: 120.0,
+                changePct: 1.5
+            };
+            addStockToActiveWatchlist(found.code, found.name, found.price, found.changePct);
+            input.value = '';
+        }
+
+        function removeStockFromWatchlist(gId, code) {
+            state.watchlists[gId] = state.watchlists[gId].filter(s => s.code !== code);
+            saveStateToStorage();
+            renderWatchlistUI();
+        }
+
+        // 拍照上傳更新自選股功能
+        function openPhotoUploadModal() {
+            document.getElementById('wl-photo-panel').classList.remove('hidden');
+            if (state.ocrCandidates.length === 0) {
+                loadSampleOCRStocks(false);
+            }
+        }
+
+        function closePhotoUploadModal() {
+            document.getElementById('wl-photo-panel').classList.add('hidden');
+        }
+
+        function handlePhotoSelected(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('wl-photo-preview-img');
+                const placeholder = document.getElementById('wl-photo-placeholder');
+                img.src = e.target.result;
+                img.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                loadSampleOCRStocks(true);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function loadSampleOCRStocks(notify = true) {
+            state.ocrCandidates = [...OCR_SAMPLE_CANDIDATES];
+            state.ocrSelectedCodes = new Set(OCR_SAMPLE_CANDIDATES.slice(0, 4).map(s => s.code));
+            renderOCRCandidates();
+            if (notify) showToast('已辨識截圖中的股票代號，請勾選後確認更新', 'success');
+        }
+
+        function renderOCRCandidates() {
+            const box = document.getElementById('wl-ocr-candidates');
+            box.innerHTML = state.ocrCandidates.map(s => {
+                const checked = state.ocrSelectedCodes.has(s.code);
+                return `
+                    <label class="flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer ${
+                        checked
+                        ? 'bg-amber-500/15 border-amber-500 text-amber-300 font-bold'
+                        : 'bg-slate-50 dark:bg-terminal-bg border-slate-200 dark:border-terminal-border text-slate-300'
+                    }">
+                        <span class="flex items-center gap-2">
+                            <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleOCRCode('${s.code}')" class="rounded text-amber-500 focus:ring-0">
+                            <span class="font-mono">${s.code}</span>
+                            <span>${s.name}</span>
+                        </span>
+                        <span class="font-mono">${s.price.toFixed(1)}</span>
+                    </label>
+                `;
+            }).join('');
+            document.getElementById('wl-ocr-selected-hint').textContent = `已選 ${state.ocrSelectedCodes.size} 檔（上限 ${WATCHLIST_LIMIT} 檔）`;
+        }
+
+        function toggleOCRCode(code) {
+            if (state.ocrSelectedCodes.has(code)) state.ocrSelectedCodes.delete(code);
+            else state.ocrSelectedCodes.add(code);
+            renderOCRCandidates();
+        }
+
+        function applyOCRStocksToWatchlist() {
+            const gId = state.activeWatchlistGroup;
+            const mode = document.querySelector('input[name="wl-import-mode"]:checked').value;
+            const picked = state.ocrCandidates.filter(s => state.ocrSelectedCodes.has(s.code));
+
+            if (picked.length === 0) {
+                showToast('請至少勾選 1 檔股票', 'alert');
+                return;
+            }
+
+            if (mode === 'replace') {
+                state.watchlists[gId] = picked.slice(0, WATCHLIST_LIMIT).map(s => ({
+                    code: s.code, name: s.name, price: s.price, changePct: s.changePct
+                }));
+            } else {
+                const list = state.watchlists[gId];
+                for (const s of picked) {
+                    if (list.length >= WATCHLIST_LIMIT) break;
+                    if (!list.some(item => item.code === s.code)) {
+                        list.push({ code: s.code, name: s.name, price: s.price, changePct: s.changePct });
+                    }
+                }
+            }
+
+            renderWatchlistUI();
+            saveStateToStorage();
+            closePhotoUploadModal();
+            showToast(`已更新「${state.watchlistNames[gId]}」自選股`, 'success');
+        }
+
+        // 當沖損益與目標價試算（僅保留 2.8、1.7 折）
+        function setFeeDiscount(disc) {
+            state.feeDiscount = disc;
+            saveStateToStorage();
+            document.querySelectorAll('.disc-btn').forEach(btn => {
+                if (parseFloat(btn.dataset.disc) === disc) {
+                    btn.className = 'disc-btn py-2 rounded-lg text-xs font-mono font-bold border border-amber-500 bg-amber-500 text-slate-950 transition-colors';
+                } else {
+                    btn.className = 'disc-btn py-2 rounded-lg text-xs font-mono font-semibold border border-slate-200 dark:border-terminal-border bg-slate-100 dark:bg-terminal-bg text-slate-400 transition-colors';
+                }
+            });
+            calculateDayTrade();
+        }
+
+        function loadPriceToCalc(code, name, price) {
+            document.getElementById('calc-stock-label').textContent = `${name} (${code})`;
+            document.getElementById('calc-buy-price').value = price;
+            calculateDayTrade();
+        }
+
+        function getTickSize(price) {
+            if (price < 10) return 0.01;
+            if (price < 50) return 0.05;
+            if (price < 100) return 0.1;
+            if (price < 500) return 0.5;
+            if (price < 1000) return 1.0;
+            return 5.0;
+        }
+
+        function calculateDayTrade() {
+            const buyPrice = parseFloat(document.getElementById('calc-buy-price').value) || 0;
+            const sheets = parseInt(document.getElementById('calc-sheets').value) || 1;
+            if (buyPrice <= 0) return;
+
+            const shares = sheets * 1000;
+            const buyAmt = buyPrice * shares;
+            const buyFee = Math.max(20, Math.floor(buyAmt * 0.001425 * state.feeDiscount));
+            const totalCost = buyAmt + buyFee;
+
+            const flatSellFee = Math.max(20, Math.floor(buyAmt * 0.001425 * state.feeDiscount));
+            const flatTax = Math.floor(buyAmt * 0.0015);
+            const friction = buyFee + flatSellFee + flatTax;
+
+            let curPrice = buyPrice;
+            let breakevenPrice = null;
+            let breakevenTicks = 0;
+            const rows = [];
+
+            for (let i = 1; i <= 7; i++) {
+                const tick = getTickSize(curPrice);
+                curPrice = Number((curPrice + tick).toFixed(2));
+                const sellAmt = curPrice * shares;
+                const sellFee = Math.max(20, Math.floor(sellAmt * 0.001425 * state.feeDiscount));
+                const tax = Math.floor(sellAmt * 0.0015);
+                const netProfit = sellAmt - sellFee - tax - totalCost;
+                const roi = (netProfit / totalCost) * 100;
+
+                if (netProfit > 0 && breakevenPrice === null) {
+                    breakevenPrice = curPrice;
+                    breakevenTicks = i;
+                }
+
+                if ([1, 2, 3, 5, 7].includes(i)) {
+                    const pos = netProfit > 0;
+                    rows.push(`
+                        <tr>
+                            <td class="py-2 px-3 font-bold ${pos ? 'text-tw-up' : 'text-slate-400'}">${curPrice.toFixed(curPrice < 50 ? 2 : 1)}</td>
+                            <td class="py-2 px-2 text-slate-400">+${i} 檔</td>
+                            <td class="py-2 px-2 text-right font-bold ${pos ? 'text-tw-up' : 'text-tw-down'}">${netProfit > 0 ? '+' : ''}${netProfit.toLocaleString()}</td>
+                            <td class="py-2 px-3 text-right ${pos ? 'text-tw-up' : 'text-tw-down'}">${roi > 0 ? '+' : ''}${roi.toFixed(2)}%</td>
+                        </tr>
+                    `);
+                }
+            }
+
+            document.getElementById('calc-total-cost').textContent = `NT$ ${totalCost.toLocaleString()}`;
+            document.getElementById('calc-friction').textContent = `NT$ ${friction.toLocaleString()}`;
+            document.getElementById('calc-breakeven').textContent = breakevenPrice ? breakevenPrice.toFixed(breakevenPrice < 50 ? 2 : 1) : '-';
+            document.getElementById('calc-breakeven-ticks').textContent = breakevenPrice ? `+${breakevenTicks} 檔損益兩平` : '';
+            document.getElementById('calc-ticks-table').innerHTML = rows.join('');
+        }
+
+        // =====================================================================
+        // 7. 分頁 4：【資金流向】產業族群淨流向排行（億元）＋ 成分股雙排序
+        // =====================================================================
+        function setFlowStockSort(sortKey) {
+            state.flowStockSort = sortKey;
+            saveStateToStorage();
+            renderCapitalFlowSection();
+        }
+
+        function selectFlowSector(sectorName) {
+            state.selectedFlowSector = sectorName;
+            saveStateToStorage();
+            renderCapitalFlowSection();
+        }
+
+        function selectFlowSector(sectorName) {
+            state.selectedFlowSector = sectorName;
+            renderCapitalFlowSection();
+        }
+
+        function renderCapitalFlowSection() {
+            const listEl = document.getElementById('sector-flow-ranking-list');
+            const rankedSectors = [...SECTOR_FLOW_DB].sort((a, b) => b.netFlow - a.netFlow);
+
+            listEl.innerHTML = rankedSectors.map((sec, idx) => {
+                const isSelected = sec.sector === state.selectedFlowSector;
+                const isPos = sec.netFlow >= 0;
+                return `
+                    <button onclick="selectFlowSector('${sec.sector}')" class="w-full text-left px-4 py-3 flex items-center justify-between transition-colors ${
+                        isSelected
+                        ? 'bg-amber-500/15 border-l-4 border-l-amber-500'
+                        : 'hover:bg-slate-50 dark:hover:bg-terminal-hover'
+                    }">
+                        <div class="flex items-center gap-2.5">
+                            <span class="font-mono text-xs font-bold text-slate-400 w-5">#${idx + 1}</span>
+                            <div>
+                                <div class="font-bold text-sm">${sec.sector}</div>
+                                <div class="text-[11px] font-mono ${sec.changePct >= 0 ? 'text-tw-up' : 'text-tw-down'}">
+                                    族群 ${sec.changePct >= 0 ? '+' : ''}${sec.changePct.toFixed(2)}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="font-mono text-sm font-bold ${isPos ? 'text-tw-up' : 'text-tw-down'}">
+                            ${isPos ? '+' : ''}${sec.netFlow.toFixed(1)} 億
+                        </div>
+                    </button>
+                `;
+            }).join('');
+
+            const flowBtn = document.getElementById('sort-flow-desc');
+            const holdersBtn = document.getElementById('sort-holders-desc');
+            if (state.flowStockSort === 'flowDesc') {
+                flowBtn.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500 text-slate-950 transition-colors';
+                holdersBtn.className = 'px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors';
+            } else {
+                holdersBtn.className = 'px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500 text-slate-950 transition-colors';
+                flowBtn.className = 'px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition-colors';
+            }
+
+            const currentSectorObj = SECTOR_FLOW_DB.find(s => s.sector === state.selectedFlowSector) || rankedSectors[0];
+            document.getElementById('flow-detail-sector-title').textContent = `${currentSectorObj.sector} 族群成分股明細`;
+            document.getElementById('flow-detail-sector-sub').textContent =
+                `共 ${currentSectorObj.stocks.length} 檔股票 ‧ 目前排序：${state.flowStockSort === 'flowDesc' ? '資金流向由大到小' : '股東人數由多到少'}`;
+
+            const sortedStocks = [...currentSectorObj.stocks].sort((a, b) =>
+                state.flowStockSort === 'flowDesc' ? b.flow - a.flow : b.holders - a.holders
+            );
+
+            const tbody = document.getElementById('flow-sector-stocks-tbody');
+            tbody.innerHTML = sortedStocks.map(st => {
+                const isUp = st.changePct >= 0;
+                const isFlowPos = st.flow >= 0;
+                return `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-terminal-hover transition-colors">
+                        <td class="py-3 px-4 font-bold">
+                            ${st.name} <span class="font-mono text-xs text-slate-400 font-normal">${st.code}</span>
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono font-bold ${isUp ? 'text-tw-up' : 'text-tw-down'}">
+                            ${st.price.toFixed(1)} <span class="text-xs">(${isUp ? '+' : ''}${st.changePct.toFixed(2)}%)</span>
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono font-bold ${isFlowPos ? 'text-tw-up' : 'text-tw-down'}">
+                            ${isFlowPos ? '+' : ''}${st.flow.toFixed(1)} 億
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono text-slate-300">
+                            ${st.holders.toLocaleString()} 人
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <button onclick="addStockToActiveWatchlist('${st.code}', '${st.name}', ${st.price}, ${st.changePct})" class="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-xs font-bold">+ 追蹤</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
