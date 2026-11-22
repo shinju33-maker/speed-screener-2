@@ -62,8 +62,12 @@
         <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-15 py-2.5 flex items-center justify-between gap-3">
             <!-- Brand -->
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-mono font-bold text-base shadow-sm">
-                    2.0
+                <div class="w-9 h-9 rounded-lg overflow-hidden bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-700 text-slate-950 flex items-center justify-center border border-amber-300/60 shadow-sm shrink-0" title="極速選股 2.0">
+                    <img src="OIP (11).webp" alt="極速選股 2.0 Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover">
+                    <svg style="display:none;" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 17h14l-2-8H7l-2 8z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 9V6h8v3"/>
+                    </svg>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
@@ -413,7 +417,7 @@
                         </button>
                     </div>
                     <button onclick="openPhotoUploadModal()" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm">
-                        <span>📷 拍照上傳更新自選股</span>
+                        <span>🖼️ 圖片上傳更新自選股</span>
                     </button>
                 </div>
             </div>
@@ -434,25 +438,25 @@
                 </div>
             </div>
 
-            <!-- 拍照上傳更新自選股面板 -->
+            <!-- 圖片上傳更新自選股面板 -->
             <div id="wl-photo-panel" class="hidden animate-panel bg-white dark:bg-terminal-panel p-4 sm:p-5 rounded-xl border border-amber-500/40 space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-terminal-border pb-3">
                     <div>
                         <h3 class="font-bold text-sm sm:text-base text-amber-400 flex items-center gap-1.5">
-                            <span>📷 拍照上傳更新自選股（截圖 / 券商庫存 / 看盤畫面辨識）</span>
+                            <span>🖼️ 圖片上傳更新自選股（支援手機截圖 / 相簿圖片 / 看盤畫面辨識）</span>
                         </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">支援開啟相機拍照、上傳看盤截圖，或直接使用範例截圖測試辨識並批次更新至目前追蹤清單</p>
+                        <p class="text-xs text-slate-400 mt-0.5">支援從手機相簿選取手機截圖、券商庫存圖檔，或載入範例截圖測試辨識並批次更新至目前追蹤清單</p>
                     </div>
                     <button onclick="closePhotoUploadModal()" class="text-slate-400 hover:text-white text-sm px-2 py-1">✕ 關閉</button>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                    <!-- 左側：拍照 / 上傳圖片區 -->
+                    <!-- 左側：圖片 / 手機截圖上傳區 -->
                     <div class="lg:col-span-5 space-y-3">
                         <div class="flex flex-wrap gap-2">
-                            <label class="flex-1 min-w-[140px] cursor-pointer px-3 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold text-center transition-colors">
-                                📸 拍照 / 選取相片
-                                <input type="file" id="wl-photo-file-input" accept="image/*" capture="environment" onchange="handlePhotoSelected(event)" class="hidden">
+                            <label class="flex-1 min-w-[150px] cursor-pointer px-3 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold text-center transition-colors">
+                                📱 上傳手機截圖 / 圖片
+                                <input type="file" id="wl-photo-file-input" accept="image/png,image/jpeg,image/webp,image/*" onchange="handlePhotoSelected(event)" class="hidden">
                             </label>
                             <button type="button" onclick="loadSampleOCRStocks()" class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-terminal-bg hover:bg-slate-800 border border-slate-200 dark:border-terminal-border text-xs font-semibold transition-colors">
                                 🖼️ 載入範例辨識結果
@@ -461,11 +465,11 @@
 
                         <div id="wl-photo-preview-box" class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-terminal-bg p-4 min-h-[170px] flex flex-col items-center justify-center text-center">
                             <div id="wl-photo-placeholder" class="space-y-1">
-                                <div class="text-2xl">🖼️</div>
-                                <p class="text-xs text-slate-400">尚未選擇照片或截圖</p>
-                                <p class="text-[11px] text-slate-500">可拍攝螢幕報價單、券商 App 或點選「載入範例辨識結果」</p>
+                                <div class="text-2xl">📱</div>
+                                <p class="text-xs text-slate-400">尚未選擇手機截圖或圖片</p>
+                                <p class="text-[11px] text-slate-500">點擊上方「上傳手機截圖 / 圖片」選取相簿截圖，或點選「載入範例辨識結果」</p>
                             </div>
-                            <img id="wl-photo-preview-img" alt="上傳截圖預覽" class="hidden max-h-48 rounded-lg object-contain">
+                            <img id="wl-photo-preview-img" alt="上傳手機截圖預覽" class="hidden max-h-48 rounded-lg object-contain">
                         </div>
                     </div>
 
@@ -935,7 +939,7 @@
 
         function registerPWASupport() {
             try {
-                const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="36" fill="#111622"/><rect x="16" y="16" width="160" height="160" rx="28" fill="#f59e0b"/><text x="96" y="114" text-anchor="middle" font-family="monospace" font-size="64" font-weight="700" fill="#0a0d14">2.0</text></svg>`;
+                const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><defs><linearGradient id="goldBar" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fde047"/><stop offset="50%" stop-color="#eab308"/><stop offset="100%" stop-color="#a16207"/></linearGradient></defs><rect width="192" height="192" rx="36" fill="#111622"/><polygon points="56,64 136,64 156,128 36,128" fill="url(#goldBar)" stroke="#fef08a" stroke-width="4"/><text x="96" y="103" text-anchor="middle" font-family="monospace" font-size="24" font-weight="700" fill="#1c1917">GOLD 2.0</text></svg>`;
                 const iconUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg)}`;
                 const manifest = {
                     name: '極速選股 2.0',
@@ -1529,7 +1533,7 @@
 
             const container = document.getElementById('watchlist-items-container');
             if (currentList.length === 0) {
-                container.innerHTML = `<div class="p-8 text-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-400">此清單目前沒有股票，可使用上方「+ 加入」或「拍照上傳更新自選股」</div>`;
+                container.innerHTML = `<div class="p-8 text-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-400">此清單目前沒有股票，可使用上方「+ 加入」或「圖片上傳更新自選股」</div>`;
                 return;
             }
 
@@ -1620,6 +1624,14 @@
                 loadSampleOCRStocks(true);
             };
             reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function loadSampleOCRStocks(notify = true) {
+            state.ocrCandidates = [...OCR_SAMPLE_CANDIDATES];
+            state.ocrSelectedCodes = new Set(OCR_SAMPLE_CANDIDATES.slice(0, 4).map(s => s.code));
+            renderOCRCandidates();
+            if (notify) showToast('已辨識手機截圖／圖片中的股票代號，請勾選後確認更新', 'success');
         }
 
         function loadSampleOCRStocks(notify = true) {
