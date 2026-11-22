@@ -383,11 +383,11 @@
         <!-- =====================================================================
              分頁 3：【自選股】
              - 追蹤清單 1 / 2 / 3 各 20 檔，並支援更改名稱
-             - 拍照上傳更新自選股
+             - 圖片上傳更新自選股（支援手機截圖預覽、範例辨識與手動輸入代號補齊）
              - 當沖損益與目標價試算僅保留 2.8、1.7 折
              ===================================================================== -->
         <section id="tab-watchlist" class="tab-section hidden space-y-4">
-            <!-- 頂部：追蹤清單 1/2/3 分組切換 + 更改名稱 + 拍照上傳更新 + 手動新增 -->
+            <!-- 頂部：追蹤清單 1/2/3 分組切換 + 更改名稱 + 圖片上傳更新 + 手動新增 -->
             <div class="bg-white dark:bg-terminal-panel p-4 rounded-xl border border-slate-200 dark:border-terminal-border flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <!-- 追蹤清單 1 / 2 / 3 頁籤與更改名稱按鈕 -->
                 <div class="flex flex-wrap items-center gap-2">
@@ -408,7 +408,7 @@
                     </button>
                 </div>
 
-                <!-- 右側工具：拍照上傳更新 + 快速新增 -->
+                <!-- 右側工具：圖片上傳更新 + 快速新增 -->
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="flex items-center gap-1.5">
                         <input type="text" id="wl-quick-add-input" placeholder="輸入代號如 2330" class="w-32 sm:w-36 px-3 py-1.5 text-xs font-mono rounded-lg bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border focus:outline-none focus:ring-1 focus:ring-amber-500">
@@ -443,9 +443,9 @@
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-terminal-border pb-3">
                     <div>
                         <h3 class="font-bold text-sm sm:text-base text-amber-400 flex items-center gap-1.5">
-                            <span>🖼️ 圖片上傳更新自選股（支援手機截圖 / 相簿圖片 / 看盤畫面辨識）</span>
+                            <span>🖼️ 圖片上傳更新自選股（支援手機截圖 / 相簿圖片）</span>
                         </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">支援從手機相簿選取手機截圖、券商庫存圖檔，或載入範例截圖測試辨識並批次更新至目前追蹤清單</p>
+                        <p class="text-xs text-slate-400 mt-0.5">本機純前端展示提供截圖預覽、範例辨識清單與手動輸入代號補齊（未串接雲端 OCR 服務時，可直接輸入截圖裡的股號加入）</p>
                     </div>
                     <button onclick="closePhotoUploadModal()" class="text-slate-400 hover:text-white text-sm px-2 py-1">✕ 關閉</button>
                 </div>
@@ -473,7 +473,7 @@
                         </div>
                     </div>
 
-                    <!-- 右側：辨識股票勾選與匯入模式 -->
+                    <!-- 右側：辨識股票勾選、手動輸入代號與匯入模式 -->
                     <div class="lg:col-span-7 space-y-3">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <span class="text-xs font-bold text-slate-300">辨識出的股票清單（勾選要更新的標的）：</span>
@@ -489,7 +489,15 @@
                             </div>
                         </div>
 
-                        <div id="wl-ocr-candidates" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                        <!-- 手動補齊截圖中的股票代號 -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input type="text" id="wl-ocr-manual-code" placeholder="手動輸入截圖股號（如 2454）" class="flex-1 min-w-[180px] px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-terminal-bg border border-slate-200 dark:border-terminal-border font-mono text-xs focus:outline-none focus:ring-1 focus:ring-amber-500">
+                            <button type="button" onclick="addManualOCRCode()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-bold transition-colors">
+                                + 加入辨識清單
+                            </button>
+                        </div>
+
+                        <div id="wl-ocr-candidates" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto p-1">
                             <!-- JS 動態渲染辨識候選股 -->
                         </div>
 
@@ -1467,7 +1475,7 @@
         }
 
         // =====================================================================
-        // 6. 分頁 3：【自選股】追蹤清單 1/2/3（各 20 檔＋更改名稱）、拍照上傳更新、2.8/1.7 折試算
+        // 6. 分頁 3：【自選股】追蹤清單 1/2/3（各 20 檔＋更改名稱）、圖片上傳更新、2.8/1.7 折試算
         // =====================================================================
         function switchWatchlistGroup(groupId) {
             state.activeWatchlistGroup = groupId;
@@ -1599,7 +1607,7 @@
             renderWatchlistUI();
         }
 
-        // 拍照上傳更新自選股功能
+        // 圖片上傳更新自選股功能
         function openPhotoUploadModal() {
             document.getElementById('wl-photo-panel').classList.remove('hidden');
             if (state.ocrCandidates.length === 0) {
@@ -1627,18 +1635,30 @@
             event.target.value = '';
         }
 
-        function loadSampleOCRStocks(notify = true) {
-            state.ocrCandidates = [...OCR_SAMPLE_CANDIDATES];
-            state.ocrSelectedCodes = new Set(OCR_SAMPLE_CANDIDATES.slice(0, 4).map(s => s.code));
+        function addManualOCRCode() {
+            const input = document.getElementById('wl-ocr-manual-code');
+            const code = input.value.trim();
+            if (!code) return;
+            if (!state.ocrCandidates.some(s => s.code === code)) {
+                const found = OCR_SAMPLE_CANDIDATES.find(s => s.code === code) || {
+                    code,
+                    name: `個股${code}`,
+                    price: 150.0,
+                    changePct: 1.2
+                };
+                state.ocrCandidates.unshift(found);
+            }
+            state.ocrSelectedCodes.add(code);
+            input.value = '';
             renderOCRCandidates();
-            if (notify) showToast('已辨識手機截圖／圖片中的股票代號，請勾選後確認更新', 'success');
+            showToast(`已將 ${code} 加入辨識候選清單`, 'success');
         }
 
         function loadSampleOCRStocks(notify = true) {
             state.ocrCandidates = [...OCR_SAMPLE_CANDIDATES];
             state.ocrSelectedCodes = new Set(OCR_SAMPLE_CANDIDATES.slice(0, 4).map(s => s.code));
             renderOCRCandidates();
-            if (notify) showToast('已辨識截圖中的股票代號，請勾選後確認更新', 'success');
+            if (notify) showToast('已載入截圖預覽與範例辨識清單，可勾選或手動補齊股號後更新', 'success');
         }
 
         function renderOCRCandidates() {
@@ -1793,11 +1813,6 @@
         function selectFlowSector(sectorName) {
             state.selectedFlowSector = sectorName;
             saveStateToStorage();
-            renderCapitalFlowSection();
-        }
-
-        function selectFlowSector(sectorName) {
-            state.selectedFlowSector = sectorName;
             renderCapitalFlowSection();
         }
 
